@@ -9,6 +9,7 @@ local State = {
 	results = nil :: any,
 	toast = nil :: any, -- { text, color, at }
 	roleShownAt = nil :: number?,
+	selected = nil :: string?, -- item picked for the USE button (client-only; cycled with NEXT)
 }
 
 function State.me(): Player
@@ -30,11 +31,33 @@ function State.timeLeft(): number
 end
 
 function State.inMatch(): boolean
-	return State.attr("InMatch") == true
+	-- Next usable item in Config/Items order (wraps).
+function State.cycle(list: { string })
+	if #list == 0 then
+		State.selected = nil
+		return nil
+	end
+	local i = if State.selected then table.find(list, State.selected) else nil
+	State.selected = list[((i or 0) % #list) + 1]
+	return State.selected
+end
+
+return State.attr("InMatch") == true
 end
 
 function State.pstate(): string?
-	return State.attr("PState")
+	-- Next usable item in Config/Items order (wraps).
+function State.cycle(list: { string })
+	if #list == 0 then
+		State.selected = nil
+		return nil
+	end
+	local i = if State.selected then table.find(list, State.selected) else nil
+	State.selected = list[((i or 0) % #list) + 1]
+	return State.selected
+end
+
+return State.attr("PState")
 end
 
 -- "Guest" | "Phantom" | "Wisp" | "Bubble" | nil (lobby / spectating)
@@ -46,7 +69,29 @@ function State.who(): string?
 	if ps == "Wisp" or ps == "Bubble" then
 		return ps
 	end
-	return State.role or ps
+	-- Next usable item in Config/Items order (wraps).
+function State.cycle(list: { string })
+	if #list == 0 then
+		State.selected = nil
+		return nil
+	end
+	local i = if State.selected then table.find(list, State.selected) else nil
+	State.selected = list[((i or 0) % #list) + 1]
+	return State.selected
+end
+
+return State.role or ps
+end
+
+-- Next usable item in Config/Items order (wraps).
+function State.cycle(list: { string })
+	if #list == 0 then
+		State.selected = nil
+		return nil
+	end
+	local i = if State.selected then table.find(list, State.selected) else nil
+	State.selected = list[((i or 0) % #list) + 1]
+	return State.selected
 end
 
 return State

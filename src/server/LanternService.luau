@@ -114,7 +114,7 @@ function LanternService.useCell(p): boolean
 	Participants.set(p, "DryCell", p.inv.DryCell)
 	Participants.set(p, "Battery", math.floor(p.battery * 10) / 10)
 	if p.player then
-		Net.toast(p.player, "Lantern recharged", "TealNeon")
+		Net.toast(p.player, "Lantern recharged +" .. G.dryCellCharge .. " s", "TealNeon")
 	end
 	return true
 end
@@ -191,7 +191,7 @@ function LanternService.step(dt: number)
 		end
 		for _, ph in phantoms do
 			local pp = Participants.pos(ph)
-			if pp then
+			if pp and math.abs(pp.Y - origin.Y) < 9 then -- floors block beams (and the cloud raycast)
 				local inside = Lantern.inCone(origin, dir, pp, G.range, G.halfAngle)
 				if inside and clearLine(origin, pp, ignore) then
 					beams[ph.id] = (beams[ph.id] or 0) + 1

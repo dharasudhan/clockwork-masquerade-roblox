@@ -1,91 +1,133 @@
 # The Clockwork Masquerade: Mystery at Sterling Manor (Roblox)
 
-Ottran Studios · Rojo + Luau · **Milestone M1 — core loop vertical slice** (Gate 1 + Gate 2 approved Oct 28 2026).
-Asymmetric chase with light sabotage: guests repair Sterling Manor's grid; 1–2 Phantoms hide among them by day and
-hunt by night. Tagged guests become Electro-Wisps and keep playing. Secular 1920s inventor / steampunk-neon look,
-family-safe, **no ghosts** (deliberately not Ghost Mansion's look).
+Ottran Studios · Rojo + Luau · **M1.1 — "enormous manor" update** of the M1 core-loop slice (built Oct 28 2026
+from Murali's playtest: "the time is too less for the game. have more items and more rooms, make the mansion
+enormous" + "wall edges flicker"). Asymmetric chase with light sabotage: guests repair Sterling Manor's grid;
+1–2 Phantoms hide among them by day and hunt by night. Tagged guests become Electro-Wisps and keep playing.
+Secular 1920s inventor / steampunk-neon look, family-safe, **no ghosts** (deliberately not Ghost Mansion's look).
 
 Roblox target: universe `10773325724`, root place `80777289760756` (Murali's private experience, formerly
 "GhostMansionTest", repurposed). **Private. No Robux products.** Never touch universe `10773325904` (Ghost Mansion) —
-`scripts/luau_exec.py` refuses it.
+`scripts/luau_exec.py` refuses it. Build label: workspace attribute `CM_Version` = `M1.1`.
 
-## M1 rules and numbers (all in `src/shared/Config/*`, data-driven)
+## M1.1 rules and numbers (all in `src/shared/Config/*`, data-driven)
 
-| | |
-|---|---|
-| Lobby | 30 s on the Phonograph Terrace; min **6** participants (bots fill), max **10** (`Config/Match`) |
-| Roles | 1 Phantom per 5: **1 at ≤ 6, 2 at 7–10**; last round's Phantoms go to the back of the queue; the role is sent **only to its owner** (never a replicated attribute) |
-| Night 1 "Main Breaker Tripped" | Day **60 s** → Night **90 s** (`Config/Nights[1]`); M1 ends after Night 1 |
-| Day: scavenge | 12 of 16 chest spots stocked; 1 s hold to search; loot weights dry-cell 50 / copper wire 30 / glow-stick 20; carry caps 3 / 2 / 3. Phantoms can search too (decoy loot) so item counters never reveal them |
-| Day: tamper | Phantom stands still **4 s** within 7 studs of a breaker (moving > 2 studs cancels); **1 tamper per night** total; stays hidden until night falls, then the breaker trips (red light, sparks) |
-| Night: transform | Phantoms unmask (neon mask, violet glow, 1.5 s freeze), speed **21** vs guests **16** |
-| Night: lantern | battery 20 s at start, cap 40 s, drains 1 s/s, dry-cell +20 s; cone 30 studs / ±20°, needs line of sight; each beam on a Phantom **−25 % speed, stacking, capped at −60 %** (one focused beam: 21 → 15.75 < 16). Aim = client camera look vector (rate-limited 15/s, NaN/zero rejected, stale > 1.2 s → body facing) |
-| Night: repair | stand still at the tripped breaker: **6 s** alone, **3 s** carrying copper wire (used up); cooperative — rates add |
-| Reboot | with all 3 breakers online the grid reaches 100 % in 72 s; each tripped breaker removes 1/3 of the rate → a tripped breaker must be repaired by ~54 s into the night |
-| Tag | Phantom, range 6 studs (+1.5 latency slack for real players), line of sight, cooldown 3 s, then 1.5 s recoil at half speed → **Energy Bubble** 3 s → **Electro-Wisp** |
-| Electro-Wisp | floating orb drone (body hidden, does not collide with characters), speed 18, **cannot tag**; **Flicker** the room's lights 4 s (cd 20 s); **Oil slick** (cd 30 s, **max 2 alive**, lasts 45 s, guests ×0.7 speed for 2 s, Phantoms unaffected) |
-| Glow-stick | guests at night: drop one (max 2 alive, 30 s); Phantoms within 16 studs are outlined through walls |
-| Win check | all guests tagged → **Phantoms**; reboot 100 % with ≥ 1 guest untagged → **Guests** (dawn, ends the night); night timer out below 100 % → Phantoms ("the manor stayed dark"); all Phantoms leave → Guests |
-| Results | 10 s card (winner, reason, the Phantoms revealed, Gear Tokens) → characters reloaded on the terrace → loop |
-| Saves | ProfileStore `ClockworkMasquerade_PlayerData_v1`: `GearTokens`, `Wins.Guest`, `Wins.Phantom`, `Played`, `Settings`; sanitised on load (`Logic/SaveData`). Tokens per match: 5 + 10 win + 1/chest + 3/repair + 2/tag, cap 40. Bots never save |
+| | M1 | **M1.1** |
+|---|---|---|
+| Lobby | 30 s | 30 s (min 6 participants, bots fill; max 10) |
+| Day / Night | 60 s / 90 s | **150 s / 240 s** (`Config/Nights[1]`) |
+| Manor | 1 floor, 10 rooms, 16.6k sq studs | **3 floors, 35 named rooms + 3 stairwells + 3-stop lift, 61.4k sq studs (3.7x)** |
+| Breakers | 3 (A–C), 1 tamper/night | **5 on all floors** (A Generator Vault B1, B Clock Workshop G, C Observatory Dome U, D Inventor's Laboratory G, E Telegraph Room U); **2 tampers/night across Phantoms**; Phantom bots tamper any breaker in the **last 40 s** of the day |
+| Reboot | 100 % in 72 s; fix by 54 s | **100 % in 200 s** with all online; each tripped breaker removes 1/5 of the rate → downtime budget 200 breaker-s: **one trip must be fixed by 200 s, two by ~100 s each** |
+| Repair | 6 s / 3 s with wire | **8 s / 4 s with wire**; brass wrench x0.6; cooperative |
+| Chests | 12 of 16 | **28 of 43 spots** (every floor) |
+| Lantern | start 20 s, cap 40, 1 s/s, cell +20 | **start 60 s, cap 120, 0.75 s/s, cell +45** |
+| Phantom | 21 speed, tag cd 3 s, recoil 1.5 s | **18.5, tag cd 8 s, recoil 4 s** (balance passes 1–3) |
+| Wisp | flicker cd 20 s (4 s), slick cd 30 s, 45 s life, x0.7 | **flicker cd 30 s (5 s), slick cd 45 s, 100 s life (max 2 alive), x0.8** |
+| Glow-stick | 30 s | 45 s |
+| Gear Tokens | 5 + 10 win + 1/chest + 3/repair + 2/tag, cap 40 | **8** + 10 win + 1/chest + 3/repair + 2/tag, **cap 60**. Cosmetic-only plan unchanged, no Robux products |
 
-Interpretation notes: Wisps help the Phantoms (the GDD's "snowball (Wisp caps)" risk) — flicker hurts guests' sight,
-slicks slow guests only. Reaching 100 % ends the night immediately (dawn). The full game will carry an unfinished
-night into Night 2 (M2); in M1 that case is a Phantom win.
+### Items (`Config/Items`, 9 kinds; caps; per-item server cooldowns)
 
-## Map
+| Item | Use | When | Effect |
+|---|---|---|---|
+| Dry-cell (cap 3) | consumed | night | lantern +45 s |
+| Copper wire (2) | passive | – | repair 4 s instead of 8 (used up on completion) |
+| Glow-stick (3) | consumed | night | drop: Phantoms within 16 studs outlined through walls (45 s) |
+| **Brass wrench** (1) | passive | – | repairs x0.6 time (stacks with wire) |
+| **Smoke pellet** (2) | consumed, cd 6 s | night | blink up to 12 studs (stops before walls) + smoke cloud + 1.5 s tag immunity |
+| **Pocket watch** (1) | kept, cd 30 s | day + night | private readout: day = how many breakers were tampered; night = dawn ETA + which breakers are down (%) |
+| **Tripwire bell** (2) | consumed, cd 3 s, 1 set per guest | day + night | rings for everyone ("A tripwire bell rang in the Library!") + red minimap ping when an unmasked Phantom passes within 7 studs (150 s life) |
+| **Spring boots** (2) | consumed, cd 4 s | day + night | x1.5 speed for 3 s |
+| **Clockwork decoy** (1) | consumed, cd 5 s | night | ticking decoy for 10 s: the nearest tag goes to it (Phantom loses its cooldown), Phantom bots are lured within 45 studs |
 
-`Config/Manor` (rooms as rectangles + doors on shared edges → `Logic/ManorLayout` builds walls with door gaps, door
-points and BFS routes): Ballroom (centre, spawn ring), Foyer, West/East/North corridors, **Boiler Room (A)**, **Clock
-Workshop (B)**, **Observatory (C)** (the 3 breaker rooms, dead ends), Luggage Room, Tea Parlour. Walnut floors, teal
-walls with walnut wainscot and brass rails, copper pipes, brass gears with teal-neon hubs, chandeliers (warm by day,
-deep violet emergency light at night, `Config/Lighting`). 636 parts. Lobby: checkered marble terrace with a phonograph,
-title board and lamps south of the closed front doors.
+Loot weights: cell 28, wire 15, glow 11, wrench 8, smoke 10, watch 6, bell 8, boots 8, decoy 6. Everyone loots the
+same table and item counters are public for everyone, so a Phantom's decoy loot never reveals it; anyone who
+**looks like a guest** (a Guest, or a Phantom by day) may use the items allowed in that phase. Server checks: item id is
+a known string, phase, state, count, per-item cooldown, plus the global Action limiter (8 burst, 6/s).
+
+Interpretation notes (unchanged from M1): Wisps help the Phantoms; reaching 100 % ends the night at once; an
+unfinished night is a Phantom win in M1.x.
+
+## Map (Sterling Manor, 3 levels; `Config/Manor` + `Logic/ManorLayout`)
+
+Rooms are rectangles per level (LevelHeight 20, RoomHeight 16, DoorHeight 12); doors join rooms on a shared edge at
+a level. **Ground**: Grand Ballroom (2 storeys, spawn ring), Foyer, North/West/East Corridors, Library, Billiard Room,
+Music Room, Inventor's Laboratory, Dining Hall, Kitchen, Map Room, Clock Workshop, Conservatory, Greenhouse.
+**Upper**: Gallery Balcony (inside the ballroom's upper half, brass railing), Portrait Hall, West/East Landing,
+Observatory Dome, Telegraph Room, Clocktower Loft, West/East Guest Suite, Drafting Room, Trophy Room, Tea Salon,
+Clock Mezzanine, Linen Room. **Basement**: Steam Corridor, Wine Cellar, Boiler Room, Generator Vault, Coal Store,
+Laundry. **Connections**: West + East Grand Stair (ground↔upper), Service Stair (basement↔ground), Service Lift
+(3 stops; "Up/Down" prompts) → every floor has loops, no dead-end floors. 64 doors, each with a brass name plate on
+both faces ("LIBRARY / GROUND FLOOR", "WEST GRAND STAIR / UP TO UPPER FLOOR"). Room dressing kits (shelves,
+billiard table, piano, tesla coil, globe, telescope, beds, barrels, boiler, dynamos, …) are non-colliding so walkers
+and bots never snag. **2,214 map parts** (budget < 3,000); only the ballroom's chandeliers cast shadows (mobile).
+
+**Z-fighting fix (playtest bug)**: all static geometry comes from `ManorLayout.geometry` — N/S walls run the full side
+and W/E walls butt-join between them (no overlapping corner columns), floor/ceiling slabs are inset to the walls'
+inner faces, trim (dado rail 0.2 deep, crown 0.3 deep) sits ON the inner face and stops short of perpendicular
+trim and door frames, door posts/lintels/plates protrude by different amounts (0.10 / 0.08 / 0.15), chest bands start
+0.05 above the floor, gear teeth are thinner than their discs, lobby rails butt-join. `Logic/Coplanar` flags any two
+same-facing faces in one plane (±0.01 studs) that overlap, and any SurfaceGui/Decal face touching another face; it
+runs on the pure geometry (unit spec), on every anchored part of the built map (engine smoke: 2,054 boxes, 0
+problems) and in the real engine (cloud boot check).
+
+## Navigation + bots
+
+`ManorLayout.route(M, from, to)` runs Dijkstra on a portal graph (door points, stair foot/head points, lift stops)
+weighted by walking distance and returns `{x, y, z, lift?}` waypoints. Bots (`BotService` + pure `Logic/BotBrain`)
+walk them with `Humanoid:MoveTo` (y-aware), ride the lift through `LiftService.ride`, hop when stuck. Brains are
+level-aware (flat distance + 2.5 per stud of height) and use items: guests smoke-blink / decoy / boots away from a
+close Phantom, set bells at breakers, check the watch, boots to far goals; Phantom bots blend in with day items and go
+for decoys.
+
+## Phone-first HUD
+
+`Logic/HudLayout` computes every rect: role chip, **3x3 item chips** (selected one outlined), phase timer pill top
+centre, objective, reboot meter, toasts, **minimap (top right, 112 px on phones)** = north-up plan of your floor with
+your room lit, breakers green/red, objective dot, red ping when a bell rings, your heading needle; **compass** under it:
+needle (relative to your camera) to the NEXT waypoint of the route to your objective (so it points at the right
+staircase), objective name + "273 m - GO DOWN". Buttons (max 3, left of Roblox's jump button): guest night
+**LAMP · USE <item> · NEXT**, day **USE · NEXT**, Phantom **TAG**, Wisp **FLICKER · SLICK**. A low lantern pre-selects
+the dry-cell. Keys: F lantern, V use, B next, C cell, G glow, Q tag, Z flicker, X slick, E/R lift. Layout renders
+(rects, not device screenshots) in `../shots/m1.1/`.
 
 ## Code layout
 
 ```
-src/shared/Config   Match, Nights, Gadgets, Manor, Style, Lighting, Audio, Bots, Billboards, DataTemplate (pure data)
-src/shared/Logic    Roles, Lantern, Grid, Outcome, Loot, Cooldown, Channel, Rewards, SaveData, ManorLayout,
+src/shared/Config   Match, Nights, Gadgets, Items, Manor, Style, Lighting, Audio, Bots, Billboards, DataTemplate
+src/shared/Logic    Roles, Lantern, Grid, Outcome, Loot, Cooldown, Channel, Rewards, SaveData, ManorLayout, Coplanar,
                     BotBrain, HudLayout, RateLimiter   (pure, no requires — unit-tested under Lune)
 src/server          MatchService (state machine, 10 Hz tick, remotes), Participants (players + bots behind one
                     record), ManorBuilder, LightingService, ChestService, GridService, LanternService, ChaseService,
-                    BotService, DataService, Net (remotes + rate limits), Clock, Build
-src/client          init (buttons/keys, lantern aim), Hud, State, PromptFilter, SoundManager
+                    ItemService, LiftService, BotService, DataService, Net (remotes + rate limits), Clock, Build
+src/client          init (buttons/keys, lantern aim), Hud, Minimap (minimap + compass), State, PromptFilter, SoundManager
 ```
 
-Remotes: `Action(kind, arg)` (lantern / cell / glow / tag / flicker / slick / cancel / whoami; 8 burst, 6/s),
+Remotes: `Action(kind, arg)` (lantern / use itemId / cell / glow / tag / flicker / slick / lift level / cancel /
+whoami; 8 burst, 6/s),
 `Aim(x, y, z)` (20 burst, 15/s), `Notify(payload)` server → client (toast, sfx, role, channel, results). Public state is
 attributes: workspace `CM_Phase`, `CM_PhaseEndsAt`, `CM_Reboot`, `CM_Tripped`, `CM_Night*`, `CM_Guests*`,
-`CM_Winner/Reason`; per player/bot `PState` (a Phantom shows `Guest` by day), items, `Battery`, `LanternOn`, cooldown
-`*ReadyAt`. A Phantom's tamper channel is only told to that player.
-
-Bots (`BotService` + pure `Logic/BotBrain`): guests scavenge, repair, shine lanterns at a near Phantom, flee (away, or
-dodge out of a dead-end room), group up; Phantoms tamper an unwatched breaker (bold in the last 25 s of the day), blend
-by searching chests, hunt the most isolated guest at night; Wisps drop slicks near guests and flicker rooms with
-guests. They call the same server entry points as players. Rigs: R15 from HumanoidDescription (fallback block rig).
-
-## Phone-first HUD
-
-`Logic/HudLayout` computes every rect: role chip top-left, **phase timer pill top centre**, objective line, reboot
-meter, toasts, items and lantern battery, up to 3 context buttons in a row **left of Roblox's touch jump button**
-(nothing interactive in the thumbstick half). Phones (min axis ≤ 500 px) scale to 0.75, tablets 1.15. Tested at
-780×360, 891×411, 2340×1080, 1024×768 tablet and 1366×768 desktop (no overlaps, on screen, clear of jump/thumbstick).
-Keys: F lantern, C dry-cell, G glow-stick, Q tag, Z flicker, X slick (E = prompts). World labels are stud-sized with
-MaxDistance ≤ 90 and hidden behind walls.
+`CM_Winner/Reason`, `CM_BellAt/Time`, `CM_Version`; per player/bot `PState` (a Phantom shows `Guest` by day), one
+count per item id, `ReadyAt_<item>`, `Battery`, `LanternOn`, `ImmuneUntil`, `BoostUntil`, cooldown `*ReadyAt`. A Phantom's tamper channel is only told to that player.
 
 ## Tests
 
 ```sh
-./scripts/test.sh     # syntax (59 files), 47 unit specs (Lune), rojo build x2, place verify (50 checks),
-                      # engine smoke (19 steps incl. full rounds), stylua check (non-fatal)
+./scripts/test.sh     # syntax (69 files), 59 unit specs (Lune), rojo build x2, place verify (55 checks),
+                      # engine smoke (21 steps), stylua check (non-fatal)
+BAL_ROUNDS=30 .tools/bin/lune run scripts/engine_smoke.luau build/ClockworkMasquerade.rbxl   # bot balance sim
 ```
 
-Engine smoke (`scripts/engine_smoke.luau`, Lune + shims): builds the manor; a full round with 1 human + 5 bots
-(Lobby → Day → Night → Results → Lobby, role privacy, chests, bot tamper, trip at night, mask, results + save);
-staged rules (chest once, tamper channel cancel + max 1, lantern slow stacking/cap, NaN aim, cooperative repair, tag →
-bubble → wisp, flicker/slick cooldowns + cap, slick slows guests not Phantoms, remote validation + rate limit, both win
-paths); 6 bot-only rounds with speed-true walking; HUD layouts + states; prompt filter; music hand-over.
+Engine smoke (`scripts/engine_smoke.luau`, Lune + shims): builds the 3-floor manor (part budget, 5 breakers on 3
+floors, 3 lift stops, 128 plate GUIs), **z-fight scan of every anchored part**, a full real-length round with
+1 human + 5 bots (Lobby → Day 150 → Night 240 → Results → Lobby, role privacy, 28 chests, 2 tampers), staged rules
+(chests per floor, tamper channel + 2/night + floor check, lantern slow + no beams through floors, wire/wrench/coop
+repair, every item by day and night incl. disguised-Phantom use, smoke immunity, decoy taking a tag, bell ringing,
+lift rules, tag → bubble → wisp, slick cap, remote validation, both win paths), N full-length bot-only rounds
+(asserts all 3 floors visited and ≥ 4 item kinds used), HUD layouts on 780×360 / 891×411 / 2340×1080 / 1024×768 /
+1366×768, HUD states (USE/NEXT cycle, item chips, disguised Phantom, minimap floor + lit room, compass
+"BREAKER A / 273 m - GO DOWN" from the Library), prompt filter, music hand-over.
 
 Cloud (Open Cloud Luau Execution; key injected on the wire as `ROBLOX_API_KEY`):
 
@@ -93,7 +135,7 @@ Cloud (Open Cloud Luau Execution; key injected on the wire as `ROBLOX_API_KEY`):
 export ROBLOX_UNIVERSE_ID=10773325724 ROBLOX_PLACE_ID=80777289760756
 python3 scripts/luau_exec.py build/ClockworkMasquerade.rbxl tests/run.server.luau     # all specs incl. ProfileStore engine spec
 python3 scripts/luau_exec.py build/ClockworkMasquerade.rbxl tests/boot_check.server.luau
-python3 scripts/luau_exec.py --no-wait build/ClockworkMasquerade.rbxl tests/bots_check.server.luau   # ~75 s, then --resume <task>
+python3 scripts/luau_exec.py --no-wait build/ClockworkMasquerade.rbxl tests/bots_check.server.luau   # ~95 s, then --resume <task> <place> <script>
 python3 scripts/luau_exec.py build/ClockworkMasquerade.rbxl tests/audio_check.server.luau
 python3 scripts/luau_exec.py --publish build/ClockworkMasquerade.production.rbxl tests/boot_check.server.luau  # private test publish
 ```
@@ -109,6 +151,8 @@ until Gate 6; rename the experience from "GhostMansionTest" when Murali wants.
 
 ## Status (Oct 28 2026)
 
-M1 built and tested: local 47/47 specs + 19/19 smoke steps; cloud 48/48 specs, boot OK, real-engine bot round OK,
-audio 14/14; published privately as place version 5. Next: Gate 3 playtest (phones), then M2 (Nights 2–3, Expose,
-classes, badges, models).
+M1 built, tested, published (place v5) and playtested by Murali. **M1.1** (this version): local 59/59 specs + 21/21
+smoke steps, 0 z-fight faces; cloud 60/60 specs, boot OK (real-engine z-fight scan clean), real-engine bot round OK
+(3/3 floors, lift rides, items), audio 14/14; published privately as **place version 8** (experience still PRIVATE).
+Bot-only balance after 3 tuning passes: **guest win ~20 % (13/66)** — below the 40–50 % target, see milestones.
+Next: Gate 3 phone playtest of M1.1, then M2.

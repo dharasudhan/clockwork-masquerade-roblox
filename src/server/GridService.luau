@@ -1,9 +1,11 @@
--- Breakers: Phantom tamper by day (4 s stationary channel, max 1 per night), cooperative
--- guest repair at night (stationary; copper wire halves the time and is used up), the reboot
--- meter. A tamper stays hidden until night falls; then the breaker trips (red light, sparks).
+-- Breakers (5, on all 3 floors): Phantom tamper by day (4 s stationary channel, max 2 per night
+-- across all Phantoms), cooperative guest repair at night (stationary; copper wire halves the time
+-- and is used up, a brass wrench makes it 40% faster), the reboot meter. A tamper stays hidden
+-- until night falls; then the breaker trips (red light, sparks).
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Grid = require(Shared.Logic.Grid)
 local Channel = require(Shared.Logic.Channel)
+local Items = require(Shared.Config.Items)
 local Build = require(script.Parent.Build)
 local Participants = require(script.Parent.Participants)
 local ManorBuilder = require(script.Parent.ManorBuilder)
@@ -113,7 +115,22 @@ end
 
 local function breakerPos(id: string)
 	local h = ManorBuilder.get().breakers[id]
-	return h.x, h.z
+	return h.x, h.z, h.y
+end
+
+-- same floor as the terminal (a breaker one storey up is not "in range")
+local function sameFloor(pos: Vector3, by: number): boolean
+	return math.abs(pos.Y - by) < 8
+end
+GridService.sameFloor = sameFloor
+
+-- seconds one guest needs for a full repair with what it carries
+function GridService.repairTime(p): number
+	local secs = if (p.inv.CopperWire or 0) > 0 then night.repairSecondsWithWire else night.repairSeconds
+	if (p.inv.BrassWrench or 0) > 0 then
+		secs *= Items.Wrench.repairFactor
+	end
+	return secs
 end
 
 -- A tamper channel must not give a Phantom away: only its owner is told (Notify). Repairs
@@ -145,8 +162,8 @@ function GridService.beginTamper(p, id: string): boolean
 	if not pos then
 		return false
 	end
-	local bx, bz = breakerPos(id)
-	if Channel.check(Channel.new(p.id, id, pos.X, pos.Z, 0), pos.X, pos.Z, bx, bz, TOLERANCE, night.tamperRange) ~= "running" then
+	local bx, bz, by = breakerPos(id)
+	if not sameFloor(pos, by) or Channel.check(Channel.new(p.id, id, pos.X, pos.Z, 0), pos.X, pos.Z, bx, bz, TOLERANCE, night.tamperRange) ~= "running" then
 		return false
 	end
 	tamperCh[p.id] = Channel.new(p.id, id, pos.X, pos.Z, Clock.now())
@@ -166,8 +183,8 @@ function GridService.beginRepair(p, id: string): boolean
 	if not pos then
 		return false
 	end
-	local bx, bz = breakerPos(id)
-	if Channel.check(Channel.new(p.id, id, pos.X, pos.Z, 0), pos.X, pos.Z, bx, bz, TOLERANCE, night.repairRange) ~= "running" then
+	local bx, bz, by = breakerPos(id)
+	if not sameFloor(pos, by) or Channel.check(Channel.new(p.id, id, pos.X, pos.Z, 0), pos.X, pos.Z, bx, bz, TOLERANCE, night.repairRange) ~= "running" then
 		return false
 	end
 	repairCh[p.id] = Channel.new(p.id, id, pos.X, pos.Z, Clock.now())
@@ -250,11 +267,20 @@ function GridService.step(dt: number)
 					setChannel(p, nil, nil)
 				end
 			else
-				local secs = if (p.inv.CopperWire or 0) > 0 then night.repairSecondsWithWire else night.repairSeconds
+				local secs = GridService.repairTime(p)
 				contributors[ch.target] = contributors[ch.target] or {}
 				table.insert(contributors[ch.target], p)
 				if Grid.addRepair(state, ch.target, dt / secs) then
-					for _, q in contributors[ch.target] do
+					-- credit everyone channelling on this breaker (not just those iterated so far)
+					local crew = {}
+					for qid, qch in repairCh do
+						local q = Participants.get(qid)
+						if q and qch.target == ch.target then
+							table.insert(crew, q)
+						end
+					end
+					contributors[ch.target] = crew
+					for _, q in crew do
 						q.stats.repairs += 1
 						if (q.inv.CopperWire or 0) > 0 then
 							q.inv.CopperWire -= 1

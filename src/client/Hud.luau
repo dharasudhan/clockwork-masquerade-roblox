@@ -1,6 +1,8 @@
 -- Phone-first HUD: role chip, phase timer pill (top centre), objective line, reboot meter,
--- toasts, carried items, lantern battery, up to 3 context buttons (left of the touch jump
--- button), the role reveal card and the results card. Rects come from Logic/HudLayout.
+-- toasts, carried items (chips, the selected one outlined), lantern battery, up to 3 context
+-- buttons (left of the touch jump button: LAMP / USE <item> / NEXT item), a north-up minimap of
+-- the current floor + an objective compass (top right), the role card and the results card.
+-- Rects come from Logic/HudLayout.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -9,7 +11,9 @@ local HudLayout = require(Shared.Logic.HudLayout)
 local Nights = require(Shared.Config.Nights)
 local Gadgets = require(Shared.Config.Gadgets)
 local Style = require(Shared.Config.Style)
+local Items = require(Shared.Config.Items)
 local State = require(script.Parent.State)
+local Minimap = require(script.Parent.Minimap)
 
 local Hud = {}
 
@@ -22,7 +26,8 @@ local gui: ScreenGui = nil :: any
 local el: { [string]: any } = {}
 local modal: { [string]: any } = {}
 local buttonActions: { string? } = {}
-local onButton: ((string) -> ())? = nil
+local buttonItems: { string? } = {}
+local onButton: ((string, string?) -> ())? = nil
 local lastLayoutKey = ""
 
 local function corner(parent: Instance, px: number)
@@ -101,15 +106,46 @@ function Hud.build(playerGui: Instance)
 	stroke(el.RoleChip, rgb("Brass"), 1.5)
 	label("Text", el.RoleChip)
 	el.Inventory = panel("Inventory", "WalnutDark", 0.3)
-	local list = Instance.new("UIListLayout")
-	list.FillDirection = Enum.FillDirection.Horizontal
-	list.SortOrder = Enum.SortOrder.LayoutOrder
-	list.Parent = el.Inventory
-	for i, item in { "DryCell", "CopperWire", "GlowStick" } do
-		local l = label(item, el.Inventory)
-		l.Size = UDim2.fromScale(1 / 3, 1)
-		l.LayoutOrder = i
+	local grid = Instance.new("UIGridLayout")
+	grid.CellSize = UDim2.new(1 / 3, -2, 1 / 3, -2)
+	grid.CellPadding = UDim2.fromOffset(2, 2)
+	grid.SortOrder = Enum.SortOrder.LayoutOrder
+	grid.Parent = el.Inventory
+	for i, item in Items.Order do
+		local def = Items.Defs[item]
+		local chip = Instance.new("Frame")
+		chip.Name = item
+		chip.LayoutOrder = i
+		chip.BackgroundColor3 = rgb("Iron")
+		chip.BackgroundTransparency = 0.1
+		chip.BorderSizePixel = 0
+		chip.Visible = false
+		chip.Parent = el.Inventory
+		corner(chip, 5)
+		local sel = Instance.new("UIStroke")
+		sel.Name = "Selected"
+		sel.Color = rgb("TealNeon")
+		sel.Thickness = 2
+		sel.Enabled = false
+		sel.Parent = chip
+		local dot = Instance.new("Frame")
+		dot.Name = "Icon"
+		dot.BackgroundColor3 = rgb(def.color)
+		dot.BorderSizePixel = 0
+		dot.Size = UDim2.fromScale(0.22, 0.8)
+		dot.Position = UDim2.fromScale(0.04, 0.1)
+		dot.Parent = chip
+		corner(dot, 3)
+		local l = label("Text", chip, def.short)
+		l.Size = UDim2.fromScale(0.72, 1)
+		l.Position = UDim2.fromScale(0.28, 0)
 	end
+	el.Minimap = panel("Minimap", "WalnutDark", 0.25)
+	stroke(el.Minimap, rgb("Brass"), 1.5)
+	el.Minimap.ClipsDescendants = true
+	el.Compass = panel("Compass", "TealDeep", 0.2)
+	stroke(el.Compass, rgb("Brass"), 1)
+	Minimap.build(el.Minimap, el.Compass)
 	el.Battery = bar("Battery", "Iron", "Warm")
 	for i = 1, 3 do
 		local b = Instance.new("TextButton")
@@ -142,7 +178,7 @@ function Hud.build(playerGui: Instance)
 		b.Activated:Connect(function()
 			local a = buttonActions[i]
 			if a and onButton then
-				onButton(a)
+				onButton(a, buttonItems[i])
 			end
 		end)
 		el["Button" .. i] = b
@@ -177,7 +213,7 @@ function Hud.build(playerGui: Instance)
 	return gui
 end
 
-function Hud.onButton(cb: (string) -> ())
+function Hud.onButton(cb: (string, string?) -> ())
 	onButton = cb
 end
 
@@ -223,16 +259,56 @@ end
 
 local PhaseName = { Lobby = "LOBBY", Day = "DAY", Night = "NIGHT", Results = "RESULTS" }
 
--- Context buttons: { action, text, readyAt?, on? }
-function Hud.buttonsFor(phase: string, who: string?, attrs): { any }
+-- Items the player can use right now (held, has a use, allowed in this phase), in cycle order.
+function Hud.usableItems(phase: string, attrs): { string }
 	local out = {}
-	if phase ~= "Night" or who == nil then
+	for _, id in Items.Order do
+		local def = Items.Defs[id]
+		if def.use and (attrs[id] or 0) > 0 and Items.usableIn(id, phase) then
+			table.insert(out, id)
+		end
+	end
+	return out
+end
+
+-- The selected item, kept valid: a stale pick falls back to the first usable item; at night a
+-- low lantern pre-selects the dry-cell.
+function Hud.resolveSelected(phase: string, attrs, selected: string?): string?
+	local list = Hud.usableItems(phase, attrs)
+	if #list == 0 then
+		return nil
+	end
+	if phase == "Night" and (attrs.Battery or 0) < Gadgets.Lantern.batteryMax * 0.2 and table.find(list, "DryCell") then
+		return "DryCell"
+	end
+	if selected and table.find(list, selected) then
+		return selected
+	end
+	return list[1]
+end
+
+-- Context buttons (max 3 on phones): { action, text, readyAt?, cooldown?, on?, dim? }
+function Hud.buttonsFor(phase: string, who: string?, attrs, selected: string?): { any }
+	local out = {}
+	if who == nil or (phase ~= "Night" and phase ~= "Day") then
 		return out
 	end
-	if who == "Guest" then
+	local looksGuest = who == "Guest" or (who == "Phantom" and phase == "Day")
+	if who == "Guest" and phase == "Night" then
 		table.insert(out, { action = "lantern", text = if attrs.LanternOn then "LAMP ON" else "LAMP", on = attrs.LanternOn == true })
-		table.insert(out, { action = "cell", text = "CELL " .. (attrs.DryCell or 0), dim = (attrs.DryCell or 0) <= 0 })
-		table.insert(out, { action = "glow", text = "GLOW " .. (attrs.GlowStick or 0), dim = (attrs.GlowStick or 0) <= 0 })
+	end
+	if looksGuest then
+		local list = Hud.usableItems(phase, attrs)
+		local sel = Hud.resolveSelected(phase, attrs, selected)
+		if sel then
+			local def = Items.Defs[sel]
+			table.insert(out, { action = "use", item = sel, text = def.short .. " " .. (attrs[sel] or 0), readyAt = attrs["ReadyAt_" .. sel], cooldown = def.cooldown })
+			if #list > 1 then
+				table.insert(out, { action = "next", text = "NEXT" })
+			end
+		elseif phase == "Night" then
+			table.insert(out, { action = "use", text = "NO ITEM", dim = true })
+		end
 	elseif who == "Phantom" then
 		table.insert(out, { action = "tag", text = "TAG", readyAt = attrs.TagReadyAt, cooldown = Gadgets.Phantom.tagCooldown })
 	elseif who == "Wisp" then
@@ -309,9 +385,14 @@ function Hud.update()
 	-- items + battery
 	local showItems = who == "Guest" or (who == "Phantom" and phase == "Day")
 	el.Inventory.Visible = showItems
-	el.Inventory.DryCell.Text = "CELL " .. (attrs.DryCell or 0)
-	el.Inventory.CopperWire.Text = "WIRE " .. (attrs.CopperWire or 0)
-	el.Inventory.GlowStick.Text = "GLOW " .. (attrs.GlowStick or 0)
+	State.selected = Hud.resolveSelected(phase, attrs, State.selected)
+	for _, id in Items.Order do
+		local chip = el.Inventory[id]
+		local n = attrs[id] or 0
+		chip.Visible = n > 0
+		chip.Text.Text = Items.Defs[id].short .. (if n > 1 then " " .. n else "")
+		chip.Selected.Enabled = State.selected == id
+	end
 	local battery = attrs.Battery or 0
 	el.Battery.Visible = showItems
 	el.Battery.Fill.Size = UDim2.fromScale(math.clamp(battery / Gadgets.Lantern.batteryMax, 0, 1), 1)
@@ -324,11 +405,12 @@ function Hud.update()
 		el.Toast.Text.TextColor3 = rgb(toast.color or "Cream")
 	end
 	-- buttons
-	local btns = Hud.buttonsFor(phase, who, attrs)
+	local btns = Hud.buttonsFor(phase, who, attrs, State.selected)
 	for i = 1, 3 do
 		local b = el["Button" .. i]
 		local spec = btns[i]
 		buttonActions[i] = spec and spec.action
+		buttonItems[i] = spec and spec.item
 		b.Visible = spec ~= nil
 		if spec then
 			b.Text = spec.text
@@ -337,6 +419,12 @@ function Hud.update()
 			local left = if spec.readyAt then spec.readyAt - now else 0
 			b.Cooldown.Size = UDim2.fromScale(1, if left > 0 and spec.cooldown then math.clamp(left / spec.cooldown, 0, 1) else 0)
 		end
+	end
+	-- minimap + compass
+	el.Minimap.Visible = phase == "Day" or phase == "Night"
+	el.Compass.Visible = el.Minimap.Visible and who ~= nil
+	if el.Minimap.Visible then
+		Minimap.update(who, phase)
 	end
 	-- role card (first seconds of a round) and results card
 	modal.RoleCard.Visible = State.roleShownAt ~= nil and os.clock() - State.roleShownAt < 4.5 and phase == "Day"

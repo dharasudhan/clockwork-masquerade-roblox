@@ -1,6 +1,7 @@
 -- Match flow (pure data). Lobby -> Night 1 (Day, Night) -> Results -> Lobby, forever.
 -- Later milestones only add nights to `Nights` order; nothing here is Night-1 specific.
 return {
+	Version = "M1.1", -- build label (workspace attribute CM_Version)
 	LobbySeconds = 30,
 	ResultsSeconds = 10,
 	MinPlayers = 6, -- bots fill up to this many participants

@@ -1,6 +1,6 @@
 -- The match state machine (server-authoritative):
---   Lobby (30 s) -> [bots fill to 6, roles: 1 Phantom per 5] -> Night N: Day (60 s) -> Night
---   (90 s) -> Results (10 s) -> Lobby ...  M1 plays Night 1 only (Config/Match.NightOrder).
+--   Lobby (30 s) -> [bots fill to 6, roles: 1 Phantom per 5] -> Night N: Day (150 s) -> Night
+--   (240 s) -> Results (10 s) -> Lobby ...  M1.1 plays Night 1 only (Config/Match.NightOrder).
 -- Ticks every Config/Match.TickSeconds; all services step from here. Global state is
 -- published as workspace attributes (CM_Phase, CM_PhaseEndsAt, CM_Reboot, ...).
 local Players = game:GetService("Players")
@@ -10,6 +10,8 @@ local Match = require(Shared.Config.Match)
 local Nights = require(Shared.Config.Nights)
 local Manor = require(Shared.Config.Manor)
 local Gadgets = require(Shared.Config.Gadgets)
+local Items = require(Shared.Config.Items)
+local ManorLayout = require(Shared.Logic.ManorLayout)
 local Roles = require(Shared.Logic.Roles)
 local Outcome = require(Shared.Logic.Outcome)
 local Rewards = require(Shared.Logic.Rewards)
@@ -20,6 +22,8 @@ local LanternService = require(script.Parent.LanternService)
 local ChaseService = require(script.Parent.ChaseService)
 local LightingService = require(script.Parent.LightingService)
 local BotService = require(script.Parent.BotService)
+local ItemService = require(script.Parent.ItemService)
+local LiftService = require(script.Parent.LiftService)
 local DataService = require(script.Parent.DataService)
 local Clock = require(script.Parent.Clock)
 local Net = require(script.Parent.Net)
@@ -67,8 +71,9 @@ end
 local function spawnPoint(i: number, n: number): CFrame
 	local a = (i / math.max(n, 1)) * math.pi * 2
 	local s = Manor.Spawn
-	local pos = Vector3.new(s.x + math.cos(a) * s.radius, 3, s.z + math.sin(a) * s.radius)
-	return CFrame.lookAt(pos, Vector3.new(s.x, 3, s.z))
+	local y = (s.level or 0) * Manor.LevelHeight + ManorLayout.RootHeight
+	local pos = Vector3.new(s.x + math.cos(a) * s.radius, y, s.z + math.sin(a) * s.radius)
+	return CFrame.lookAt(pos, Vector3.new(s.x, y, s.z))
 end
 
 local function place(p, i: number, n: number)
@@ -77,8 +82,12 @@ local function place(p, i: number, n: number)
 	end
 end
 
-local PUBLIC_KEYS = { "PState", "InMatch", "Battery", "LanternOn", "DryCell", "CopperWire", "GlowStick", "TagReadyAt",
-	"FlickerReadyAt", "SlickReadyAt", "SlicksAlive", "Transforming", "Beams", "Revealed", "Slowed", "Repairing" }
+local PUBLIC_KEYS = { "PState", "InMatch", "Battery", "LanternOn", "TagReadyAt", "FlickerReadyAt", "SlickReadyAt",
+	"SlicksAlive", "Transforming", "Beams", "Revealed", "Slowed", "Repairing", "ImmuneUntil", "BoostUntil" }
+for _, id in Items.Order do
+	table.insert(PUBLIC_KEYS, id)
+	table.insert(PUBLIC_KEYS, "ReadyAt_" .. id)
+end
 
 local function clearPublic(p)
 	for _, k in PUBLIC_KEYS do
@@ -128,8 +137,9 @@ local function startRound()
 	end
 	local ids = {}
 	for _, p in entries do
-		p.inv = { DryCell = 0, CopperWire = 0, GlowStick = 0 }
-		p.stats = { chests = 0, repairs = 0, tags = 0 }
+		p.inv = Items.emptyInventory()
+		p.stats = { chests = 0, repairs = 0, tags = 0, items = 0, lifts = 0 }
+		p.itemAt, p.immuneUntil, p.boostUntil, p.liftAt = {}, nil, nil, nil
 		p.state = "Guest"
 		p.transformed = false
 		p.lastTag, p.lastFlicker, p.lastSlick, p.aim, p.aimAt = nil, nil, nil, nil, nil
@@ -143,6 +153,7 @@ local function startRound()
 	ChestService.stock(night)
 	GridService.reset(night)
 	BotService.setNight(night)
+	ItemService.setNight(night)
 	for i, p in Participants.all() do
 		p.role = roles[p.id]
 		place(p, i, #entries)
@@ -217,6 +228,7 @@ end
 local function cleanup()
 	ChaseService.reset()
 	LanternService.reset()
+	ItemService.reset()
 	ChestService.clear()
 	for _, p in Participants.all() do
 		GridService.cancel(p)
@@ -260,6 +272,7 @@ function MatchService.step(dt: number)
 		GridService.step(dt)
 		LanternService.step(dt)
 		ChaseService.step(dt)
+		ItemService.step(dt)
 		local total, alive, phantoms = counts()
 		workspace:SetAttribute("CM_GuestsTotal", total)
 		workspace:SetAttribute("CM_GuestsAlive", alive)
@@ -298,10 +311,17 @@ local function onAction(player: Player, kind: any, arg: any)
 	end
 	if kind == "lantern" then
 		LanternService.setOn(p, if type(arg) == "boolean" then arg else not p.lanternOn)
+	elseif kind == "use" then
+		local ok, why = ItemService.use(p, arg)
+		if not ok and p.player and why ~= "cooldown" and why ~= "bad id" then
+			Net.toast(p.player, "Can't use that now (" .. tostring(why) .. ")", "BreakerBad")
+		end
 	elseif kind == "cell" then
-		LanternService.useCell(p)
+		ItemService.use(p, "DryCell")
 	elseif kind == "glow" then
-		ChaseService.dropGlow(p)
+		ItemService.use(p, "GlowStick")
+	elseif kind == "lift" then
+		LiftService.ride(p, arg)
 	elseif kind == "tag" then
 		ChaseService.tryTag(p, nil)
 	elseif kind == "flicker" then
@@ -329,7 +349,10 @@ end
 
 local started = false
 function MatchService.init()
+	workspace:SetAttribute("CM_Version", Match.Version)
 	GridService.init()
+	ItemService.init()
+	LiftService.init()
 	Net.Action.OnServerEvent:Connect(onAction)
 	Net.Aim.OnServerEvent:Connect(function(player, x, y, z)
 		if not Net.allowAim(player) then

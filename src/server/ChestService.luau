@@ -1,10 +1,12 @@
--- Day scavenging: stocks Night.chestCount brass-bound chests at random Config/Manor spots,
+-- Day scavenging: stocks Night.chestCount brass-bound chests at random manor chest spots
+-- (Logic/ManorLayout.chestSpots: ~43 over all 3 floors),
 -- each opened once (ProximityPrompt hold, server checks range + phase). Loot goes into the
 -- opener's carried items (caps in Config/Gadgets). Phantoms may open chests too: they keep
 -- decoy loot they cannot use, so item counters never give their role away.
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Manor = require(Shared.Config.Manor)
-local Gadgets = require(Shared.Config.Gadgets)
+local Items = require(Shared.Config.Items)
+local ManorLayout = require(Shared.Logic.ManorLayout)
 local Loot = require(Shared.Logic.Loot)
 local Billboard = require(Shared.Billboard)
 local Build = require(script.Parent.Build)
@@ -19,21 +21,27 @@ local rng = Random.new()
 local night: any = nil
 local openHook: ((any, string) -> ())? = nil
 
-local ItemNames = { DryCell = "Dry-cell", CopperWire = "Copper wire", GlowStick = "Glow-stick" }
+local ItemNames = {}
+for id, d in Items.Defs do
+	ItemNames[id] = d.name
+end
+local spots = ManorLayout.chestSpots(Manor)
+local caps = Items.caps()
 
 function ChestService.onOpened(cb)
 	openHook = cb
 end
 
-local function chestModel(id: string, x: number, z: number, parent: Instance)
+local function chestModel(id: string, x: number, y: number, z: number, parent: Instance)
 	local m = Instance.new("Model")
 	m.Name = id
-	local body = Build.part({ name = "Body", parent = m, size = Vector3.new(3.2, 2, 2.2), pos = Vector3.new(x, 1, z), color = "Walnut", material = Enum.Material.Wood })
-	Build.part({ name = "Lid", parent = m, size = Vector3.new(3.3, 0.6, 2.3), pos = Vector3.new(x, 2.3, z), color = "WalnutDark", material = Enum.Material.Wood })
+	local body = Build.part({ name = "Body", parent = m, size = Vector3.new(3.2, 2, 2.2), pos = Vector3.new(x, y + 1, z), color = "Walnut", material = Enum.Material.Wood })
+	Build.part({ name = "Lid", parent = m, size = Vector3.new(3.3, 0.6, 2.3), pos = Vector3.new(x, y + 2.3, z), color = "WalnutDark", material = Enum.Material.Wood })
 	for _, dx in { -1.1, 1.1 } do
-		Build.part({ name = "Band", parent = m, size = Vector3.new(0.3, 2.7, 2.35), pos = Vector3.new(x + dx, 1.35, z), color = "Brass", material = Enum.Material.Metal, collide = false })
+		-- bands start 0.05 above the floor so their bottoms never share the body's plane
+		Build.part({ name = "Band", parent = m, size = Vector3.new(0.3, 2.65, 2.35), pos = Vector3.new(x + dx, y + 1.375, z), color = "Brass", material = Enum.Material.Metal, collide = false })
 	end
-	local glow = Build.part({ name = "Latch", parent = m, size = Vector3.new(0.6, 0.6, 0.2), pos = Vector3.new(x, 1.8, z - 1.2), color = "TealNeon", material = Enum.Material.Neon, collide = false })
+	local glow = Build.part({ name = "Latch", parent = m, size = Vector3.new(0.6, 0.6, 0.2), pos = Vector3.new(x, y + 1.8, z - 1.2), color = "TealNeon", material = Enum.Material.Neon, collide = false })
 	Build.light(glow, "PointLight", Build.color("TealNeon"), 0.6, 7)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "Search"
@@ -56,14 +64,15 @@ function ChestService.stock(nightCfg)
 	night = nightCfg
 	local b = ManorBuilder.get()
 	local folder = b.manor:FindFirstChild("Chests")
-	local picks = Loot.pickSpots(#Manor.ChestSpots, nightCfg.chestCount, function()
+	local picks = Loot.pickSpots(#spots, nightCfg.chestCount, function()
 		return rng:NextNumber()
 	end)
 	for n, idx in picks do
-		local spot = Manor.ChestSpots[idx]
+		local spot = spots[idx]
 		local id = "Chest_" .. n
-		local model, prompt = chestModel(id, spot.x, spot.z, folder)
-		chests[id] = { id = id, x = spot.x, z = spot.z, model = model, opened = false }
+		local model, prompt = chestModel(id, spot.x, spot.y, spot.z, folder)
+		model:SetAttribute("Level", spot.level)
+		chests[id] = { id = id, x = spot.x, y = spot.y, z = spot.z, level = spot.level, room = spot.room, model = model, opened = false }
 		prompt.Triggered:Connect(function(player)
 			local p = Participants.ofPlayer(player)
 			if p then
@@ -105,12 +114,12 @@ function ChestService.open(p, id: string): string?
 		return nil
 	end
 	local pos = Participants.pos(p)
-	if pos == nil or (Vector3.new(pos.X, 0, pos.Z) - Vector3.new(c.x, 0, c.z)).Magnitude > 9 then
+	if pos == nil or (Vector3.new(pos.X, 0, pos.Z) - Vector3.new(c.x, 0, c.z)).Magnitude > 9 or math.abs(pos.Y - c.y) > 7 then
 		return nil
 	end
 	c.opened = true
 	local item = Loot.roll(night.loot, rng:NextNumber())
-	local added = Loot.add(p.inv, item, Gadgets.Inventory.caps)
+	local added = Loot.add(p.inv, item, caps)
 	p.stats.chests += 1
 	Participants.set(p, item, p.inv[item])
 	if p.player then
@@ -138,4 +147,5 @@ function ChestService.open(p, id: string): string?
 end
 
 ChestService.ItemNames = ItemNames
+ChestService.spots = spots
 return ChestService

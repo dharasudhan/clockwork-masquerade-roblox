@@ -1,5 +1,6 @@
 -- The Clockwork Masquerade - client entry: HUD, controls (buttons + keys), lantern aim,
--- prompt filter, music/SFX.
+-- prompt filter, music/SFX. Keys: F lantern, V use item, B next item, C dry-cell, G glow-stick,
+-- Q tag, Z flicker, X slick, E/R lift up/down (prompts).
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -22,9 +23,25 @@ SoundManager.init()
 local function send(kind: string, arg: any?)
 	Action:FireServer(kind, arg)
 end
-Hud.onButton(function(action)
+local function cycleItem()
+	State.cycle(Hud.usableItems(State.phase(), player:GetAttributes()))
+	Hud.update()
+end
+local function useItem(item: string?)
+	local id = item or State.selected
+	if id then
+		send("use", id)
+	end
+end
+Hud.onButton(function(action, item)
 	SoundManager.sfx("Click")
-	send(action)
+	if action == "next" then
+		cycleItem()
+	elseif action == "use" then
+		useItem(item)
+	else
+		send(action)
+	end
 end)
 
 local Keys = {
@@ -39,6 +56,13 @@ local Keys = {
 }
 UserInputService.InputBegan:Connect(function(input, processed)
 	if processed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.V or input.KeyCode == Enum.KeyCode.ButtonX then
+		useItem(nil)
+		return
+	elseif input.KeyCode == Enum.KeyCode.B or input.KeyCode == Enum.KeyCode.DPadRight then
+		cycleItem()
 		return
 	end
 	local a = Keys[input.KeyCode]

@@ -2,12 +2,13 @@
 -- SAME server entry points as players (ChestService.open, GridService.beginTamper/Repair,
 -- LanternService, ChaseService.tryTag / flicker / slick), so every rule, range and cooldown
 -- holds for them too. Brains are pure (Logic/BotBrain); movement walks room to room through
--- door points (Logic/ManorLayout.route) with Humanoid:MoveTo and hops to the next waypoint
--- when stuck (Luau Execution sessions do not step physics). Bots never save anything.
+-- doors, up stair flights and by service lift (Logic/ManorLayout.route) with Humanoid:MoveTo and
+-- hops to the next waypoint when stuck (Luau Execution sessions do not step physics). Bots never save anything.
 local Players = game:GetService("Players")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
 local Gadgets = require(Shared.Config.Gadgets)
+local Items = require(Shared.Config.Items)
 local Manor = require(Shared.Config.Manor)
 local BotBrain = require(Shared.Logic.BotBrain)
 local ManorLayout = require(Shared.Logic.ManorLayout)
@@ -19,7 +20,8 @@ local ChestService = require(script.Parent.ChestService)
 local GridService = require(script.Parent.GridService)
 local LanternService = require(script.Parent.LanternService)
 local ChaseService = require(script.Parent.ChaseService)
-local ManorBuilder = require(script.Parent.ManorBuilder)
+local ItemService = require(script.Parent.ItemService)
+local LiftService = require(script.Parent.LiftService)
 local Clock = require(script.Parent.Clock)
 
 local BotService = {}
@@ -162,27 +164,29 @@ function BotService.setNight(n)
 end
 
 -- ---- movement ------------------------------------------------------------------------------
-local function planTo(b, x: number, z: number)
+-- Routes come from Logic/ManorLayout.route (Dijkstra over doors, stair flights and the lift);
+-- every waypoint carries a y (root height), and `lift = level` waypoints ride the service lift.
+local function planTo(b, x: number, y: number?, z: number)
 	local pos = Participants.pos(b)
 	if not pos then
 		return
 	end
-	local from = ManorLayout.roomAt(Manor.Rooms, pos.X, pos.Z)
-	local to = ManorLayout.roomAt(Manor.Rooms, x, z)
-	local pts = {}
-	if from and to and from ~= to then
-		pts = ManorLayout.route(Manor.Rooms, Manor.Doors, from, to) or {}
-	end
+	local ty = y or pos.Y
+	local goal = { x = x, y = ty, z = z }
+	local to = ManorLayout.roomAt(Manor, x, ty, z)
 	if to then
-		local room = ManorLayout.byId(Manor.Rooms)[to]
-		x, z = ManorLayout.clampInto(room, x, z, 2)
+		local room = ManorLayout.ids(Manor)[to]
+		goal.x, goal.z = ManorLayout.clampInto(room, x, z, 2)
 	end
-	table.insert(pts, { x = x, z = z })
+	local pts = ManorLayout.route(Manor, { x = pos.X, y = pos.Y, z = pos.Z }, goal) or {}
+	table.insert(pts, goal)
 	b.path = pts
-	b.goal = { x = x, z = z }
+	b.goal = goal
 	b.progressAt = Clock.now()
 	b.lastDist = math.huge
+	b.plans = (b.plans or 0) + 1
 end
+BotService.planTo = planTo
 
 local function stop(b)
 	b.path = {}
@@ -192,6 +196,12 @@ local function stop(b)
 	if h and pos then
 		h:MoveTo(pos)
 	end
+end
+
+local function note(b, pos: Vector3)
+	local lvl = ManorLayout.levelAt(Manor, pos.Y)
+	b.levels = b.levels or {}
+	b.levels[lvl] = true
 end
 
 local function walk(b)
@@ -205,8 +215,14 @@ local function walk(b)
 		return
 	end
 	local pos = root.CFrame.Position
-	local d = Vector3.new(pt.x - pos.X, 0, pt.z - pos.Z).Magnitude
-	if d <= Cfg.ArriveDistance then
+	note(b, pos)
+	local function arrived(q)
+		return Vector3.new(q.x - pos.X, 0, q.z - pos.Z).Magnitude <= Cfg.ArriveDistance and math.abs((q.y or pos.Y) - pos.Y) < 5
+	end
+	if arrived(pt) then
+		if pt.lift then
+			LiftService.ride(b, pt.lift)
+		end
 		table.remove(b.path, 1)
 		b.progressAt = Clock.now()
 		b.lastDist = math.huge
@@ -214,14 +230,19 @@ local function walk(b)
 		if not pt then
 			return
 		end
-		d = Vector3.new(pt.x - pos.X, 0, pt.z - pos.Z).Magnitude
+		pos = root.CFrame.Position
 	end
+	local d = Vector3.new(pt.x - pos.X, (pt.y or pos.Y) - pos.Y, pt.z - pos.Z).Magnitude
 	if d < b.lastDist - 0.5 then
 		b.lastDist = d
 		b.progressAt = Clock.now()
 	elseif Clock.now() - b.progressAt > unstick then
 		-- stuck (or no physics): hop to the waypoint
-		b.model:PivotTo(CFrame.new(pt.x, pos.Y, pt.z) * (root.CFrame - root.CFrame.Position))
+		b.model:PivotTo(CFrame.new(pt.x, pt.y or pos.Y, pt.z) * (root.CFrame - root.CFrame.Position))
+		b.hops = (b.hops or 0) + 1
+		if pt.lift then
+			LiftService.ride(b, pt.lift)
+		end
 		table.remove(b.path, 1)
 		b.progressAt = Clock.now()
 		b.lastDist = math.huge
@@ -229,62 +250,65 @@ local function walk(b)
 		if not pt then
 			return
 		end
+		pos = root.CFrame.Position
 	end
-	h:MoveTo(Vector3.new(pt.x, pos.Y, pt.z))
+	h:MoveTo(Vector3.new(pt.x, pt.y or pos.Y, pt.z))
 end
 
 -- ---- world view --------------------------------------------------------------------------
+local breakerSpecs = ManorLayout.breakers(Manor)
 local function view(b)
-	local w = { phase = workspace:GetAttribute("CM_Phase"), timeLeft = (workspace:GetAttribute("CM_PhaseEndsAt") or 0) - Clock.now(), guests = {}, phantoms = {}, chests = {}, breakers = {}, fleeSpots = {} }
+	local RH = ManorLayout.RootHeight
+	local w = { phase = workspace:GetAttribute("CM_Phase"), timeLeft = (workspace:GetAttribute("CM_PhaseEndsAt") or 0) - Clock.now(), guests = {}, phantoms = {}, decoys = {}, chests = {}, breakers = {}, fleeSpots = {} }
 	for _, q in Participants.all() do
 		local pos = Participants.pos(q)
 		if pos then
 			if q.role == "Guest" and q.state == "Guest" then
-				table.insert(w.guests, { id = q.id, x = pos.X, z = pos.Z })
+				table.insert(w.guests, { id = q.id, x = pos.X, y = pos.Y, z = pos.Z })
 			elseif q.role == "Phantom" and q.state == "Phantom" then
 				-- guests only "see" Phantoms once they have transformed (night)
-				table.insert(w.phantoms, { id = q.id, x = pos.X, z = pos.Z })
+				table.insert(w.phantoms, { id = q.id, x = pos.X, y = pos.Y, z = pos.Z })
 			end
 		end
 	end
+	for _, dc in ItemService.decoys() do
+		table.insert(w.decoys, { id = dc.id, x = dc.x, y = dc.y, z = dc.z })
+	end
 	for _, c in ChestService.unopened() do
-		table.insert(w.chests, { id = c.id, x = c.x, z = c.z })
+		table.insert(w.chests, { id = c.id, x = c.x, y = c.y + RH, z = c.z })
 	end
 	local grid = GridService.state()
-	local built = ManorBuilder.get()
-	if grid and built then
-		for id, h in built.breakers do
-			local br = grid.breakers[id]
-			-- guests only learn a breaker is broken when it trips at night
-			local tampered = br and br.tampered and (b.role == "Phantom" or w.phase == "Night")
-			-- stand in front of the cabinet
-			local spec
-			for _, s in Manor.Breakers do
-				if s.id == id then
-					spec = s
-				end
+	if grid then
+		for _, spec in breakerSpecs do
+			local br = grid.breakers[spec.id]
+			if br then
+				-- guests only learn a breaker is broken when it trips at night
+				local tampered = br.tampered and (b.role == "Phantom" or w.phase == "Night")
+				table.insert(w.breakers, { id = spec.id, x = spec.standX, y = spec.y + RH, z = spec.standZ, tampered = tampered })
 			end
-			local fx = if spec.face == "E" then 2.5 elseif spec.face == "W" then -2.5 else 0
-			local fz = if spec.face == "S" then 2.5 elseif spec.face == "N" then -2.5 else 0
-			table.insert(w.breakers, { id = id, x = h.x + fx, z = h.z + fz, tampered = tampered })
 		end
 		w.tampersLeft = (night and night.maxTampers or 1) - grid.tampers
 	end
 	local pos = Participants.pos(b)
 	if pos then
-		local here = ManorLayout.roomAt(Manor.Rooms, pos.X, pos.Z)
+		local here = ManorLayout.roomAt(Manor, pos.X, pos.Y, pos.Z)
 		if here then
-			local m = ManorLayout.byId(Manor.Rooms)
+			local m = ManorLayout.ids(Manor)
 			w.room = m[here]
 			local cx, cz = ManorLayout.centre(m[here])
-			table.insert(w.fleeSpots, { x = cx, z = cz })
-			for _, n in ManorLayout.neighbours(Manor.Rooms, Manor.Doors, here) do
-				local nx, nz = ManorLayout.centre(m[n])
-				table.insert(w.fleeSpots, { x = nx, z = nz })
+			table.insert(w.fleeSpots, { x = cx, y = pos.Y, z = cz })
+			for _, d in Manor.Doors do
+				if d.a == here or d.b == here then
+					local other = m[if d.a == here then d.b else d.a]
+					local info = ManorLayout.doorInfo(Manor, d)
+					local ox, oz = ManorLayout.centre(other)
+					local oy = if other.stair or (other.span or 1) > 1 then info.y + RH else ManorLayout.baseY(Manor, other) + RH
+					table.insert(w.fleeSpots, { x = ox, y = oy, z = oz })
+				end
 			end
 			local inRoom = 0
 			for _, g in w.guests do
-				if ManorLayout.roomAt(Manor.Rooms, g.x, g.z) == here then
+				if ManorLayout.roomAt(Manor, g.x, g.y, g.z) == here then
 					inRoom += 1
 				end
 			end
@@ -300,8 +324,12 @@ local function think(b)
 		return
 	end
 	local now = Clock.now()
+	local ready = {}
+	for id, def in Items.Defs do
+		ready[id] = b.itemAt == nil or b.itemAt[id] == nil or now - b.itemAt[id] >= (def.cooldown or 0)
+	end
 	local me = {
-		id = b.id, x = pos.X, z = pos.Z, state = b.state, battery = b.battery or 0, inv = b.inv,
+		id = b.id, x = pos.X, y = pos.Y, z = pos.Z, state = b.state, battery = b.battery or 0, inv = b.inv, itemReady = ready,
 		slickReady = Cooldown.ready(b.lastSlick, Gadgets.Wisp.slickCooldown, now),
 		flickerReady = Cooldown.ready(b.lastFlicker, Gadgets.Wisp.flickerCooldown, now),
 	}
@@ -317,17 +345,24 @@ local function think(b)
 		d = BotBrain.guest(me, w, Cfg, Gadgets, night)
 	end
 	b.lastDecision = d.action
+	-- items (same server entry point as players)
+	if d.item then
+		local opts = if d.itemDir then { dir = Vector3.new(d.itemDir.x, 0, d.itemDir.z) } else nil
+		if ItemService.use(b, d.item, opts) then
+			b.itemsUsed = b.itemsUsed or {}
+			b.itemsUsed[d.item] = (b.itemsUsed[d.item] or 0) + 1
+		end
+	end
 	-- lantern
 	if b.role == "Guest" and b.state == "Guest" then
-		if d.useCell then
-			LanternService.useCell(b)
-		end
 		if d.lantern then
 			LanternService.setOn(b, true)
 			LanternService.aimAtPoint(b, Vector3.new(d.aimX, pos.Y, d.aimZ))
 			-- a guest under threat drops a glow-stick to expose the Phantom
-			if (b.inv.GlowStick or 0) > 0 and Cooldown.ready(b.lastGlow, 12, now) and ChaseService.dropGlow(b) then
+			if (b.inv.GlowStick or 0) > 0 and Cooldown.ready(b.lastGlow, 12, now) and ItemService.use(b, "GlowStick") then
 				b.lastGlow = now
+				b.itemsUsed = b.itemsUsed or {}
+				b.itemsUsed.GlowStick = (b.itemsUsed.GlowStick or 0) + 1
 			end
 		elseif b.lanternOn then
 			LanternService.setOn(b, false)
@@ -340,8 +375,9 @@ local function think(b)
 		if d.exact or (b.role == "Phantom" and b.state == "Phantom") then
 			tx, tz = d.x, d.z -- a hunter goes straight for its target
 		end
-		if g == nil or math.abs(g.x - tx) + math.abs(g.z - tz) > 4 or #b.path == 0 then
-			planTo(b, tx, tz)
+		local ty = d.y or pos.Y
+		if g == nil or math.abs(g.x - tx) + math.abs(g.z - tz) + math.abs((g.y or ty) - ty) > 4 or #b.path == 0 then
+			planTo(b, tx, ty, tz)
 		end
 		GridService.cancel(b)
 		b.dwell = nil
@@ -368,7 +404,7 @@ local function think(b)
 		local t = Participants.get(d.id)
 		local tp = t and Participants.pos(t)
 		if tp then
-			planTo(b, tp.X, tp.Z)
+			planTo(b, tp.X, tp.Y, tp.Z)
 		end
 	elseif a == "slick" then
 		ChaseService.slick(b)

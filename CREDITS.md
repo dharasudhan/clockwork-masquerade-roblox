@@ -31,6 +31,21 @@ Searched GitHub on Oct 28 2026 for Roblox round / asymmetric-chase / hidden-role
 | [DennisCalvert/Roblox-Forsaken-Style-Game](https://github.com/DennisCalvert/Roblox-Forsaken-Style-Game) | (none stated) | DbD-style killer/survivor objectives | ideas only, license unknown → nothing used |
 | [CodeBotsStudio/Dysymmetrical](https://github.com/CodeBotsStudio/Dysymmetrical) | custom (credit + keep print calls) | asymmetric engine | not used (attribution terms we don't want in a shipped game) |
 
+### M1.1 research (Oct 28 2026): minimap, large-map / multi-floor bot navigation, item systems
+
+| Project | License | What we compared | Taken |
+|---|---|---|---|
+| [ReelPlum/Frederikhomes-Minimap](https://github.com/ReelPlum/Frederikhomes-Minimap) ("Plum's minimap", DevForum) | MIT | ViewportFrame minimap (clones the map into a viewport, rotating, border-snapping blips) | not used: cloning 2,000+ parts into a ViewportFrame is heavy on phones; we draw room rectangles from data as 2D Frames instead (idea: blips + heading) |
+| [ShouxTech/roblox-minimap](https://github.com/ShouxTech/roblox-minimap) | none stated | TypeScript minimap with markers | license unknown → nothing used |
+| [Roblox creator-docs: ViewportFrame](https://github.com/Roblox/creator-docs/blob/main/content/en-us/ui/viewport-frames.md) | CC-BY-4.0 docs | when a ViewportFrame minimap is appropriate | informed the choice above |
+| [ahmicy/simplepath](https://github.com/ahmicy/simplepath) | MIT | PathfindingService wrapper for humanoid NPCs | not used: Luau Execution sessions do not step physics and our map is authored rectangles, so an explicit portal graph is cheaper and testable under Lune |
+| [Daemon6109/AStarPathfinding](https://github.com/Daemon6109/AStarPathfinding), [Elmuti/PfindPlugin](https://github.com/Elmuti/PfindPlugin) | MIT / none stated | node-graph A* over hand-placed nodes | idea only: our `ManorLayout.graph` = door, stair foot/head and lift nodes with Dijkstra on walking distance (written from scratch) |
+| [ProtonDev-sys/StridePath](https://github.com/ProtonDev-sys/StridePath), [imezx/JPSPlus](https://github.com/imezx/JPSPlus) | none stated / LGPL-3.0 | cached nav-grids, jump point search | not used (grid not needed; LGPL not wanted in a shipped game) |
+| [tralfa42real/roblox-secure-inventory-system](https://github.com/tralfa42real/roblox-secure-inventory-system) | MIT | server-authoritative inventory: argument validation, per-player rate limits, item registry | ideas: one item registry (`Config/Items`), server validates id/phase/state/count/cooldown, generic Action rate limit |
+| [Zyn-ic/Stoway](https://github.com/Zyn-ic/Stoway) | MIT | data-driven inventory/hotbar | idea: item definitions drive the HUD (short label, colour chip) |
+
+The z-fighting detector (`Logic/Coplanar`) and the wall/trim layout rules were written for this project.
+
 ## Audio
 
 Only ids already verified in Ghost Mansion (free Roblox-licensed library: APMOfficial music, Roblox UI sounds) and

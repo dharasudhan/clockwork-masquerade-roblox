@@ -13,8 +13,14 @@ return {
 	IsolationWeight = 22, -- phantom cost per neighbour guest near a target
 	OpenRange = 6,
 	StandRange = 4, -- within this of a breaker's stand point (2.5 studs in front) to tamper/repair (> ArriveDistance)
-	BoldSeconds = 25, -- ... unless the Day has less than this left
+	BoldSeconds = 40, -- ... unless the Day has less than this left (M1.1: any breaker in the last 40 s)
 	WatchRadius = 8, -- a Phantom bot only tampers when no guest is this close to the breaker
+	FloorCost = 2.5, -- distance cost per stud of height difference (one floor = +50 studs)
+	BootsDistance = 70, -- use spring boots when the goal is farther than this
+	WatchDaySeconds = 30, -- check the pocket watch late in the Day
+	SmokeRadius = 9, -- smoke-blink away from a Phantom this close
+	DecoyLure = 45, -- Phantom bots go for a decoy this close ...
+	DecoyBonus = 15, -- ... as if it were this much nearer than a guest
 	Looks = {
 		{ { 234, 196, 160 }, { 30, 90, 96 }, { 196, 152, 64 }, { 60, 40, 30 } },
 		{ { 200, 150, 110 }, { 120, 26, 46 }, { 184, 108, 56 }, { 40, 40, 48 } },

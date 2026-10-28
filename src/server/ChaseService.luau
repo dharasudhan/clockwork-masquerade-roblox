@@ -10,6 +10,7 @@ local Lantern = require(Shared.Logic.Lantern)
 local Cooldown = require(Shared.Logic.Cooldown)
 local Loot = require(Shared.Logic.Loot)
 local ManorLayout = require(Shared.Logic.ManorLayout)
+local Items = require(Shared.Config.Items)
 local Build = require(script.Parent.Build)
 local Participants = require(script.Parent.Participants)
 local LanternService = require(script.Parent.LanternService)
@@ -23,7 +24,7 @@ local ChaseService = {}
 local P, W, B, GS = Gadgets.Phantom, Gadgets.Wisp, Gadgets.Bubble, Gadgets.GlowStick
 local slicks: { any } = {}
 local glows: { any } = {}
-local hooks = { tagged = nil :: any }
+local hooks = { tagged = nil :: any, decoys = nil :: any, decoyTagged = nil :: any }
 
 local GROUP_CHARS, GROUP_WISPS = "CMChars", "CMWisps"
 local groupsReady = false
@@ -53,6 +54,18 @@ end
 function ChaseService.onTagged(cb)
 	hooks.tagged = cb
 end
+
+-- ItemService registers its clockwork decoys: provider() -> { {id, x, y, z} }, popped(decoy, by)
+function ChaseService.setDecoys(provider, popped)
+	hooks.decoys = provider
+	hooks.decoyTagged = popped
+end
+
+-- floor height under a position (slicks, glow-sticks sit on it)
+local function floorY(pos: Vector3): number
+	return ManorLayout.levelAt(Manor, pos.Y) * Manor.LevelHeight
+end
+ChaseService.floorY = floorY
 
 local function effects(): Instance
 	return workspace:FindFirstChild("Effects") or Build.folder("Effects", workspace)
@@ -172,7 +185,7 @@ function ChaseService.tryTag(p, targetId: string?): boolean
 	local slack = if p.isBot then 0 else 1.5 -- network latency allowance for real players
 	local best, bd = nil, P.tagRange + slack
 	for _, g in Participants.guests(true) do
-		if targetId == nil or g.id == targetId then
+		if (targetId == nil or g.id == targetId) and now >= (g.immuneUntil or 0) then
 			local gp = Participants.pos(g)
 			if gp and math.abs(gp.Y - pos.Y) < 6 then
 				local d = flatDist(gp, pos)
@@ -181,6 +194,29 @@ function ChaseService.tryTag(p, targetId: string?): boolean
 				end
 			end
 		end
+	end
+	-- a clockwork decoy closer than any guest takes the tag (and the cooldown)
+	local decoy = nil
+	if hooks.decoys then
+		for _, dc in hooks.decoys() do
+			if targetId == nil or dc.id == targetId then
+				local dp = Vector3.new(dc.x, dc.y, dc.z)
+				if math.abs(dp.Y - pos.Y) < 6 then
+					local d = flatDist(dp, pos)
+					if d <= bd then
+						decoy, bd, best = dc, d, nil
+					end
+				end
+			end
+		end
+	end
+	if decoy then
+		p.lastTag = now
+		Participants.set(p, "TagReadyAt", now + P.tagCooldown)
+		if hooks.decoyTagged then
+			hooks.decoyTagged(decoy, p)
+		end
+		return true
 	end
 	if not best then
 		return false
@@ -243,7 +279,7 @@ end
 
 local function roomOf(p): string?
 	local pos = Participants.pos(p)
-	return pos and ManorLayout.roomAt(Manor.Rooms, pos.X, pos.Z)
+	return pos and ManorLayout.roomAt(Manor, pos.X, pos.Y, pos.Z)
 end
 ChaseService.roomOf = roomOf
 
@@ -286,9 +322,10 @@ function ChaseService.slick(p): boolean
 	if not pos or not roomOf(p) then
 		return false
 	end
-	local part = Build.part({ name = "OilSlick", parent = effects(), shape = Enum.PartType.Cylinder, size = Vector3.new(0.1, W.slickRadius * 2, W.slickRadius * 2), cf = CFrame.new(pos.X, 0.06, pos.Z) * CFrame.Angles(0, 0, math.rad(90)), color = "Oil", material = Enum.Material.Glass, collide = false, query = false, shadow = false, transparency = 0.15 })
+	local fy = floorY(pos)
+	local part = Build.part({ name = "OilSlick", parent = effects(), shape = Enum.PartType.Cylinder, size = Vector3.new(0.1, W.slickRadius * 2, W.slickRadius * 2), cf = CFrame.new(pos.X, fy + 0.06, pos.Z) * CFrame.Angles(0, 0, math.rad(90)), color = "Oil", material = Enum.Material.Glass, collide = false, query = false, shadow = false, transparency = 0.15 })
 	part.Reflectance = 0.4
-	table.insert(slicks, { owner = p.id, x = pos.X, z = pos.Z, untilT = now + W.slickLifetime, part = part })
+	table.insert(slicks, { owner = p.id, x = pos.X, y = pos.Y, z = pos.Z, untilT = now + W.slickLifetime, part = part })
 	p.lastSlick = now
 	Participants.set(p, "SlickReadyAt", now + W.slickCooldown)
 	Participants.set(p, "SlicksAlive", aliveSlicks(p))
@@ -312,9 +349,9 @@ function ChaseService.dropGlow(p): boolean
 	if not pos then
 		return false
 	end
-	local part = Build.part({ name = "GlowStick", parent = effects(), size = Vector3.new(0.3, 0.3, 1.4), cf = CFrame.new(pos.X, 0.2, pos.Z) * CFrame.Angles(0, math.random() * 6.28, 0), color = "Glow", material = Enum.Material.Neon, collide = false, query = false, shadow = false })
+	local part = Build.part({ name = "GlowStick", parent = effects(), size = Vector3.new(0.3, 0.3, 1.4), cf = CFrame.new(pos.X, floorY(pos) + 0.2, pos.Z) * CFrame.Angles(0, math.random() * 6.28, 0), color = "Glow", material = Enum.Material.Neon, collide = false, query = false, shadow = false })
 	Build.light(part, "PointLight", Build.color("Glow"), 2, GS.radius)
-	table.insert(glows, { owner = p.id, x = pos.X, z = pos.Z, untilT = Clock.now() + GS.lifetime, part = part })
+	table.insert(glows, { owner = p.id, x = pos.X, y = pos.Y, z = pos.Z, untilT = Clock.now() + GS.lifetime, part = part })
 	Participants.set(p, "GlowStick", p.inv.GlowStick)
 	return true
 end
@@ -365,7 +402,7 @@ function ChaseService.step(dt: number)
 				local revealed = false
 				if pos then
 					for _, g in glows do
-						if flatDist(pos, Vector3.new(g.x, pos.Y, g.z)) <= GS.radius then
+						if math.abs(g.y - pos.Y) < 8 and flatDist(pos, Vector3.new(g.x, pos.Y, g.z)) <= GS.radius then
 							revealed = true
 						end
 					end
@@ -379,20 +416,22 @@ function ChaseService.step(dt: number)
 				local recoil = if p.lastTag and now - p.lastTag < P.recoilSeconds then P.recoilFactor else 1
 				setSpeed(p, if p.transformed then P.nightSpeed * Lantern.speedFactor(beams, Gadgets.Lantern) * recoil else 0)
 			else
-				setSpeed(p, P.daySpeed)
+				local boost = if now < (p.boostUntil or 0) then Items.Boots.factor else 1
+				setSpeed(p, P.daySpeed * boost)
 			end
 		elseif p.state == "Guest" then
 			local slowed = false
 			if pos and night then
 				for _, s in slicks do
-					if flatDist(pos, Vector3.new(s.x, pos.Y, s.z)) <= W.slickRadius then
+					if math.abs(s.y - pos.Y) < 6 and flatDist(pos, Vector3.new(s.x, pos.Y, s.z)) <= W.slickRadius then
 						p.slickUntil = now + W.slickSlowSeconds
 					end
 				end
 				slowed = now < (p.slickUntil or 0)
 			end
 			Participants.set(p, "Slowed", slowed)
-			setSpeed(p, Gadgets.Guest.walkSpeed * (if slowed then W.slickSlow else 1))
+			local boost = if now < (p.boostUntil or 0) then Items.Boots.factor else 1
+			setSpeed(p, Gadgets.Guest.walkSpeed * (if slowed then W.slickSlow else 1) * boost)
 		end
 	end
 end

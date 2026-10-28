@@ -13,8 +13,11 @@ function PromptFilter.allowed(prompt: Instance, phase: string, role: string?, ps
 	if forPhase and forPhase ~= phase then
 		return false
 	end
-	if pstate == "Wisp" or pstate == "Bubble" or role == nil then
+	if role == nil or pstate == "Bubble" then
 		return false
+	end
+	if pstate == "Wisp" then
+		return prompt:GetAttribute("AllowWisp") == true
 	end
 	local forRole = prompt:GetAttribute("ForRole")
 	if forRole and forRole ~= "Any" and forRole ~= role then

@@ -28,8 +28,17 @@ return {
 		Wisp = { 120, 240, 255 },
 		Guest = { 60, 220, 200 },
 		Phantom = { 230, 70, 200 },
+		Marble = { 214, 206, 190 },
+		Tile = { 168, 176, 170 },
+		Stone = { 104, 100, 94 },
+		Navy = { 18, 22, 48 },
+		Leaf = { 58, 110, 52 },
+		Felt = { 30, 96, 60 },
+		Smoke = { 200, 200, 210 },
+		Bell = { 255, 214, 90 },
+		Spring = { 120, 255, 160 },
+		Decoy = { 255, 170, 60 },
 	},
-	WallHeight = 16,
 	WallThickness = 1,
-	CeilingHeight = 16, -- ceiling slab bottom (flush with the wall tops)
+	-- per-floor heights live in Config/Manor (LevelHeight 20, RoomHeight 16, DoorHeight 12)
 }

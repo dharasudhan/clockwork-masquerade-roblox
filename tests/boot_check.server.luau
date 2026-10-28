@@ -25,7 +25,51 @@ for _, d in map:GetDescendants() do
 		parts += 1
 	end
 end
-assert(#map.Manor.Breakers:GetChildren() == 3, "breakers")
+assert(#map.Manor.Breakers:GetChildren() == #Manor.Breakers and #Manor.Breakers == 5, "breakers")
+assert(parts < 3000, "part budget " .. parts)
+-- every lift stop has its prompts
+for _, l in map.Manor.Lifts:GetChildren() do
+	if l.Name == "LiftPanel" then
+		assert(#l.LiftPoint:GetChildren() >= 1, "lift prompts")
+	end
+end
+-- z-fighting check in the REAL engine (same detector as the local smoke)
+local Coplanar = require(game:GetService("ReplicatedStorage").Shared.Logic.Coplanar)
+local boxes, guis = {}, {}
+for _, d in map:GetDescendants() do
+	if d:IsA("BasePart") and d.Anchored and d.Transparency < 0.99 then
+		local cf = d.CFrame
+		local R = { cf.RightVector.X, cf.RightVector.Y, cf.RightVector.Z }
+		local U = { cf.UpVector.X, cf.UpVector.Y, cf.UpVector.Z }
+		local B = { -cf.LookVector.X, -cf.LookVector.Y, -cf.LookVector.Z }
+		local shape = if d:IsA("Part") then d.Shape else Enum.PartType.Block
+		local sz = d.Size
+		local b
+		if shape == Enum.PartType.Block then
+			b = Coplanar.alignedBox(d:GetFullName(), cf.X, cf.Y, cf.Z, sz.X, sz.Y, sz.Z, R, U, B)
+		elseif shape == Enum.PartType.Cylinder then
+			local side = math.min(sz.Y, sz.Z) * 0.7071
+			b = Coplanar.alignedBox(d:GetFullName(), cf.X, cf.Y, cf.Z, sz.X, side, side, R, U, B)
+		end
+		if b then
+			table.insert(boxes, b)
+			local faces = {}
+			for _, g in d:GetChildren() do
+				if g:IsA("SurfaceGui") or g:IsA("Decal") then
+					local wf = Coplanar.worldFace(g.Face.Name, R, U, B)
+					if wf then
+						table.insert(faces, wf)
+					end
+				end
+			end
+			if #faces > 0 then
+				guis[#boxes] = faces
+			end
+		end
+	end
+end
+local zf = Coplanar.find(boxes, 0.01, 0.02, guis)
+assert(#zf == 0, #zf .. " coplanar faces, e.g. " .. (zf[1] and (boxes[zf[1].a].name .. " vs " .. boxes[zf[1].b].name) or ""))
 for _, b in map.Manor.Breakers:GetChildren() do
 	local pp = b.Cabinet.PromptPoint
 	assert(pp:FindFirstChild("Tamper") and pp:FindFirstChild("Repair"), "breaker prompts " .. b.Name)
@@ -33,7 +77,7 @@ end
 local phase = workspace:GetAttribute("CM_Phase")
 assert(phase == "Lobby" or phase == "Day", "phase " .. tostring(phase))
 local left = workspace:GetAttribute("CM_PhaseEndsAt") - workspace:GetServerTimeNow()
-assert(left > 0 and left <= 61, "countdown " .. left)
+assert(left > 0 and left <= 151, "countdown " .. left)
 local Lighting = game:GetService("Lighting")
 assert(Lighting:FindFirstChildOfClass("Atmosphere"), "no atmosphere")
 assert(Lighting:GetAttribute("Preset") ~= nil, "no lighting preset")
@@ -46,5 +90,6 @@ local ChaseService = m("ChaseService")
 ChaseService.prepare({ model = nil })
 assert(PhysicsService:IsCollisionGroupRegistered("CMWisps"), "Wisp collision group")
 assert(PhysicsService:CollisionGroupsAreCollidable("CMWisps", "CMChars") == false, "wisps collide with characters")
-print(string.format("BOOT OK: phase %s (%.0f s left), %d map parts, preset %s", phase, left, parts, tostring(Lighting:GetAttribute("Preset"))))
+assert(workspace:GetAttribute("CM_Version") == "M1.1", "version " .. tostring(workspace:GetAttribute("CM_Version")))
+print(string.format("BOOT OK: M1.1, phase %s (%.0f s left), %d map parts, %d boxes z-fight free, preset %s", phase, left, parts, #boxes, tostring(Lighting:GetAttribute("Preset"))))
 return phase, parts

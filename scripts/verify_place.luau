@@ -17,16 +17,16 @@ local expected = {
 	{ "ServerStorage.Tests.framework.TestRunner", "ModuleScript" },
 	{ "StarterPlayer.StarterPlayerScripts.Client", "LocalScript" },
 }
-for _, n in { "Match", "Nights", "Gadgets", "Manor", "Style", "Lighting", "Audio", "Bots", "Billboards", "DataTemplate" } do
+for _, n in { "Match", "Nights", "Gadgets", "Manor", "Style", "Lighting", "Audio", "Bots", "Billboards", "DataTemplate", "Items" } do
 	table.insert(expected, { "ReplicatedStorage.Shared.Config." .. n, "ModuleScript" })
 end
-for _, n in { "Roles", "Lantern", "Grid", "Outcome", "Loot", "Cooldown", "Channel", "Rewards", "SaveData", "ManorLayout", "BotBrain", "HudLayout", "RateLimiter" } do
+for _, n in { "Roles", "Lantern", "Grid", "Outcome", "Loot", "Cooldown", "Channel", "Rewards", "SaveData", "ManorLayout", "BotBrain", "HudLayout", "RateLimiter", "Coplanar" } do
 	table.insert(expected, { "ReplicatedStorage.Shared.Logic." .. n, "ModuleScript" })
 end
-for _, n in { "Build", "Clock", "Net", "Participants", "ManorBuilder", "LightingService", "ChestService", "GridService", "LanternService", "ChaseService", "BotService", "DataService", "MatchService" } do
+for _, n in { "Build", "Clock", "Net", "Participants", "ManorBuilder", "LightingService", "ChestService", "GridService", "LanternService", "ChaseService", "BotService", "DataService", "MatchService", "ItemService", "LiftService" } do
 	table.insert(expected, { "ServerScriptService.Server." .. n, "ModuleScript" })
 end
-for _, n in { "State", "Hud", "PromptFilter", "SoundManager" } do
+for _, n in { "State", "Hud", "PromptFilter", "SoundManager", "Minimap" } do
 	table.insert(expected, { "StarterPlayer.StarterPlayerScripts.Client." .. n, "ModuleScript" })
 end
 

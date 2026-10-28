@@ -1,4 +1,4 @@
--- Phone-first HUD layout (pure). Takes the GUI area in px and whether the device is
+-- Phone-first HUD layout (pure). M1.1 adds the minimap + compass (top right) and a 2-row item bar. Takes the GUI area in px and whether the device is
 -- touch-first; returns absolute rects { x, y, w, h } (from the top-left) for every element.
 -- Lessons from Ghost Mansion's phone playtest: small screens (min axis <= 500) scale the HUD
 -- down, the phase timer is a small pill at the top centre, buttons sit LEFT of Roblox's touch
@@ -33,7 +33,15 @@ function HudLayout.compute(w: number, h: number, touch: boolean)
 	local toastW = math.min(w * 0.6, 400 * s)
 	el.Toast = { x = (w - toastW) / 2, y = el.Reboot.y + el.Reboot.h + 6, w = toastW, h = 24 * s }
 	el.RoleChip = { x = 10, y = 4, w = 150 * s, h = 30 * s }
-	el.Inventory = { x = 10, y = el.RoleChip.y + el.RoleChip.h + 6, w = 150 * s, h = 26 * s }
+	-- carried items: 3 x 3 chips (9 item kinds); phones keep the full 216 px so labels stay legible
+	local inv = if small then 1 else s
+	el.Inventory = { x = 10, y = el.RoleChip.y + el.RoleChip.h + 6, w = 216 * inv, h = 62 * inv }
+	-- minimap (north-up, current floor) + objective compass, top right
+	local mapS = if small then 112 else 120 * s
+	el.Minimap = { x = w - mapS - 10, y = 4, w = mapS, h = mapS }
+	-- compass: two lines (objective / distance + UP-DOWN), wider than the map so text stays legible
+	local cw = mapS * 1.35
+	el.Compass = { x = w - cw - 10, y = el.Minimap.y + mapS + 4, w = cw, h = 34 * s }
 	-- action buttons: a row, rightmost first
 	local btn = if touch then (if small then 60 else 92) else 72
 	local gap = if small then 10 else 12

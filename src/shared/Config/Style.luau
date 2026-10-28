@@ -1,0 +1,35 @@
+-- Visual identity of Sterling Manor (pure data, RGB triples). Deliberately NOT Ghost Mansion's
+-- look: 1920s inventor / steampunk-neon. Walnut floors, deep teal walls, brass + copper trim,
+-- warm chandeliers by day and a deep VIOLET emergency grid at night. No ghosts anywhere.
+return {
+	Palette = {
+		Walnut = { 92, 58, 36 },
+		WalnutDark = { 60, 38, 24 },
+		Parquet = { 128, 84, 52 },
+		Teal = { 26, 78, 82 },
+		TealDeep = { 16, 50, 56 },
+		TealNeon = { 60, 255, 220 },
+		Brass = { 196, 152, 64 },
+		BrassDark = { 140, 104, 40 },
+		Copper = { 184, 108, 56 },
+		Cream = { 236, 222, 190 },
+		Iron = { 52, 52, 58 },
+		Ceiling = { 44, 34, 30 },
+		Velvet = { 120, 26, 46 },
+		VioletNeon = { 170, 80, 255 },
+		MaskNeon = { 255, 60, 200 },
+		Warm = { 255, 196, 128 },
+		Emergency = { 150, 70, 255 },
+		BreakerOk = { 80, 255, 140 },
+		BreakerBad = { 255, 70, 60 },
+		Glow = { 140, 255, 90 },
+		Oil = { 20, 16, 28 },
+		Bubble = { 90, 230, 255 },
+		Wisp = { 120, 240, 255 },
+		Guest = { 60, 220, 200 },
+		Phantom = { 230, 70, 200 },
+	},
+	WallHeight = 16,
+	WallThickness = 1,
+	CeilingHeight = 16, -- ceiling slab bottom (flush with the wall tops)
+}

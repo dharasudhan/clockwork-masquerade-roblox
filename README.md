@@ -177,7 +177,10 @@ until Gate 6; rename the experience from "GhostMansionTest" when Murali wants.
 ## Status
 
 **Oct 29 2026 — v1.0 RC**: StreamingEnabled + Persistent interactables, CREDITS, store kit; local 72/72 specs,
-engine smoke 0 failures; see `../milestones.md` for cloud results and the published place version.
+engine smoke 0 failures. Cloud (Open Cloud Luau Execution, universe 10773325724 only): 73/73 specs, boot OK
+(v1.0-rc1, StreamingEnabled true, 3,537 parts, 3,235 boxes z-fight free), real-engine 3-night bot match OK (4/5 floors,
+11 lift rides, 18 items used), audio 25/25. **Published privately as place version 10**; experience visibility read
+back as PRIVATE. Store kit in `../store/` (mirrored to `docs/store/` on GitHub).
 
 ### Oct 28 2026
 

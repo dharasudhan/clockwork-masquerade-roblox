@@ -131,6 +131,7 @@ local FaceDir = { E = Vector3.new(1, 0, 0), W = Vector3.new(-1, 0, 0), S = Vecto
 local function breakerModel(parent: Instance, spec, roomTop: number)
 	local m = Instance.new("Model")
 	m.Name = "Breaker_" .. spec.id
+	m.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 	m:SetAttribute("BreakerId", spec.id)
 	m:SetAttribute("Level", spec.level)
 	local dir = FaceDir[spec.face]
@@ -432,7 +433,7 @@ local function label(part: BasePart, face: Enum.NormalId, title: string, sub: st
 end
 
 local function buildProps(manor: Instance)
-	local folder = Build.folder("Props", manor)
+	local folder = Build.persistent("Props", manor)
 	local m = ManorLayout.ids(Manor)
 	local out = { cabinets = {}, keys = {}, projector = nil :: any, board = nil :: any, console = nil :: any }
 	-- blueprint cabinets (Night 2)
@@ -442,6 +443,7 @@ local function buildProps(manor: Instance)
 		local x0, x1, z0, z1 = ManorDecor.wallBox(r, c.side, c.at, 3.2, 0.1, 1.6)
 		local model = Instance.new("Model")
 		model.Name = "Cabinet_" .. c.id
+		model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 		local body = Build.part({ name = "Cabinet", parent = model, size = Vector3.new(x1 - x0, 6, z1 - z0), pos = Vector3.new((x0 + x1) / 2, b + 3, (z0 + z1) / 2), color = "Oak", material = Mat.Wood })
 		local face = ManorDecor.IntoRoom[c.side]
 		local into = ({ N = Vector3.new(0, 0, 1), S = Vector3.new(0, 0, -1), W = Vector3.new(1, 0, 0), E = Vector3.new(-1, 0, 0) })[c.side]
@@ -462,6 +464,7 @@ local function buildProps(manor: Instance)
 		local b = ManorLayout.baseY(Manor, r)
 		local model = Instance.new("Model")
 		model.Name = "Projector"
+		model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 		local stand = Build.part({ name = "ProjectorStand", parent = model, size = Vector3.new(3, 3.4, 3), pos = Vector3.new(P.x, b + 1.7, P.z), color = "Mahogany", material = Mat.Wood })
 		local box = Build.part({ name = "ProjectorBox", parent = model, size = Vector3.new(2.6, 1.8, 2.2), pos = Vector3.new(P.x, b + 4.3, P.z), color = "Brass", material = Mat.Metal, collide = false })
 		local lens = Build.part({ name = "ProjectorLens", parent = model, shape = Enum.PartType.Cylinder, size = Vector3.new(0.8, 1.2, 1.2), cf = CFrame.new(P.x, b + 4.3, P.z - 1.5) * CFrame.Angles(0, math.rad(90), 0), color = "TealNeon", material = Mat.Neon, collide = false })
@@ -493,6 +496,7 @@ local function buildProps(manor: Instance)
 		local b = ManorLayout.baseY(Manor, r)
 		local model = Instance.new("Model")
 		model.Name = "ExitConsole"
+		model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 		local body = Build.part({ name = "ConsoleBody", parent = model, size = Vector3.new(4, 4.2, 2.4), pos = Vector3.new(C.x, b + 0.6 + 2.1, C.z), color = "Copper", material = Mat.Metal })
 		local screen = Build.part({ name = "ConsoleScreen", parent = model, size = Vector3.new(3.2, 1.6, 0.2), pos = Vector3.new(C.x, b + 3.9, C.z + 1.3), color = "TealDeep", material = Mat.Neon, collide = false })
 		label(screen, Enum.NormalId.Back, "EXIT CONSOLE", "insert 3 keys", "TealNeon")
@@ -633,13 +637,13 @@ function ManorBuilder.build()
 	manor:SetAttribute("ArtPieces", artCount)
 
 	-- breaker terminals
-	local breakersFolder = Build.folder("Breakers", manor)
+	local breakersFolder = Build.persistent("Breakers", manor)
 	local breakers = {}
 	for _, spec in ManorLayout.breakers(Manor) do
 		breakers[spec.id] = breakerModel(breakersFolder, spec, ManorLayout.topY(Manor, m[spec.room]))
 	end
 	-- service lift panels
-	local liftsFolder = Build.folder("Lifts", manor)
+	local liftsFolder = Build.persistent("Lifts", manor)
 	local lifts = {}
 	for _, r in Manor.Rooms do
 		if r.lift then

@@ -8,9 +8,23 @@
       },
       "Remotes": {
         "$className": "Folder",
-        "Action": { "$className": "RemoteEvent" },
-        "Aim": { "$className": "RemoteEvent" },
-        "Notify": { "$className": "RemoteEvent" }
+        "Action": {
+          "$className": "RemoteEvent"
+        },
+        "Aim": {
+          "$className": "RemoteEvent"
+        },
+        "Notify": {
+          "$className": "RemoteEvent"
+        }
+      }
+    },
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": true,
+        "StreamingTargetRadius": 256,
+        "StreamingMinRadius": 96,
+        "StreamingIntegrityMode": "PauseOutsideLoadedArea"
       }
     },
     "Lighting": {
@@ -35,8 +49,12 @@
     "ServerStorage": {
       "Tests": {
         "$className": "Folder",
-        "framework": { "$path": "tests/framework" },
-        "specs": { "$path": "tests/specs" }
+        "framework": {
+          "$path": "tests/framework"
+        },
+        "specs": {
+          "$path": "tests/specs"
+        }
       }
     },
     "StarterPlayer": {

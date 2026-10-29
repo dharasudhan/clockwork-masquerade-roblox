@@ -51,5 +51,15 @@ if server and server.Disabled then
 	failures += 1
 	print("[ERROR] Server script is disabled")
 end
-print(string.format("Place verification: %d checks, %d failure(s)", #expected + 2, failures))
+-- StreamingEnabled (v1.0 RC): radius + no-fall integrity mode
+local ws = game:GetService("Workspace")
+local okStream = ws.StreamingEnabled == true and ws.StreamingTargetRadius >= 128 and ws.StreamingMinRadius >= 64
+	and ws.StreamingMinRadius <= ws.StreamingTargetRadius
+if not okStream then
+	failures += 1
+	print("[ERROR] Workspace streaming settings: enabled=" .. tostring(ws.StreamingEnabled))
+else
+	print(string.format("Streaming: target %d, min %d, %s", ws.StreamingTargetRadius, ws.StreamingMinRadius, tostring(ws.StreamingIntegrityMode)))
+end
+print(string.format("Place verification: %d checks, %d failure(s)", #expected + 3, failures))
 process.exit(if failures == 0 then 0 else 1)

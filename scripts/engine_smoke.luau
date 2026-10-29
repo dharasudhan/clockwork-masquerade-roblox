@@ -539,6 +539,18 @@ step("ManorBuilder: 5-level manor (B1, G, 1F, 2F attic, tower), 50+ rooms with o
 		nCab += 1
 	end
 	assert(nCab == #Manor.Cabinets, "cabinets " .. nCab)
+	-- StreamingEnabled: key interactables never stream out on clients
+	local Persistent = roblox.Enum.ModelStreamingMode.Persistent
+	for _, n in { "Breakers", "Lifts", "Props" } do
+		local g = map.Manor:FindFirstChild(n)
+		assert(g and g:IsA("Model") and g.ModelStreamingMode == Persistent, n .. " not a Persistent model")
+	end
+	assert(p.console.model.ModelStreamingMode == Persistent and p.projector.model.ModelStreamingMode == Persistent, "console/projector persistent")
+	for _, b in built.breakers do
+		assert(b.model.ModelStreamingMode == Persistent, "breaker persistent")
+	end
+	assert(p.board.part:IsDescendantOf(map.Manor.Props), "evidence board under Props")
+	print("       streaming: Breakers/Lifts/Props (board, console, projector, cabinets, key pedestals) Persistent")
 	for _, d in map:GetDescendants() do
 		assert(not string.find(string.lower(d.Name), "ghost"), "ghost-themed instance " .. d:GetFullName())
 	end

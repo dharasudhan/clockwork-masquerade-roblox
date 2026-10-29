@@ -19,6 +19,14 @@
         }
       }
     },
+    "Workspace": {
+      "$properties": {
+        "StreamingEnabled": true,
+        "StreamingTargetRadius": 256,
+        "StreamingMinRadius": 96,
+        "StreamingIntegrityMode": "PauseOutsideLoadedArea"
+      }
+    },
     "Lighting": {
       "$properties": {
         "Technology": "Future",

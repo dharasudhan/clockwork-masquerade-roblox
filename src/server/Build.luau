@@ -49,6 +49,21 @@ function Build.folder(name: string, parent: Instance): Folder
 	return nf
 end
 
+-- StreamingEnabled: a Model group that is never streamed out on clients (key interactables:
+-- breakers, lift panels, props = cabinets/projector/evidence board/exit console/key pedestals).
+-- Same lookups as a Folder (FindFirstChild / GetChildren), but its whole subtree stays replicated.
+function Build.persistent(name: string, parent: Instance): Model
+	local f = parent:FindFirstChild(name)
+	if f and f:IsA("Model") then
+		return f
+	end
+	local m = Instance.new("Model")
+	m.Name = name
+	m.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	m.Parent = parent
+	return m
+end
+
 function Build.light(parent: Instance, kind: string, color: Color3, brightness: number, range: number, shadows: boolean?)
 	local l = Instance.new(kind) :: any
 	l.Color = color

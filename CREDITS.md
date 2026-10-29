@@ -44,6 +44,23 @@ Searched GitHub on Oct 28 2026 for Roblox round / asymmetric-chase / hidden-role
 | [tralfa42real/roblox-secure-inventory-system](https://github.com/tralfa42real/roblox-secure-inventory-system) | MIT | server-authoritative inventory: argument validation, per-player rate limits, item registry | ideas: one item registry (`Config/Items`), server validates id/phase/state/count/cooldown, generic Action rate limit |
 | [Zyn-ic/Stoway](https://github.com/Zyn-ic/Stoway) | MIT | data-driven inventory/hotbar | idea: item definitions drive the HUD (short label, colour chip) |
 
+### v1.0 research (Oct 28–29 2026): docs, purchases, saves, input, cutscenes, rounds, streaming
+
+Ideas and API guidance only — **no code copied** from any project below. All are credited because they shaped how
+v1.0's systems were designed.
+
+| Source | License | What we compared | Taken |
+|---|---|---|---|
+| [Roblox/creator-docs](https://github.com/Roblox/creator-docs) (Roblox Creator Documentation) | CC-BY-4.0 (docs), MIT (code samples) | Instance streaming (`StreamingEnabled`, `ModelStreamingMode`, `RequestStreamAroundAsync`), `MarketplaceService.ProcessReceipt`, badges, ContextActionService, GuiService safe area, Open Cloud Luau Execution + place publishing | API usage and the streaming / purchase / safe-area patterns; text paraphrased, not copied |
+| [Corecii/PurchaseProcessor](https://github.com/Corecii/PurchaseProcessor) | MIT | idempotent developer-product receipts (record the purchase id in the player's save before granting, return `PurchaseGranted` only after a save) | idea: `ShopService` grants a receipt once, keyed by `PurchaseId` in save v2 |
+| [nezuo/spark](https://github.com/nezuo/spark) | MIT | input-action mapping across keyboard / gamepad / touch with device-aware glyphs | idea: one action map (`client/Input`) that both keyboard and gamepad bind to, glyph per active device |
+| [AdamMillsy/Inputter](https://github.com/AdamMillsy/Inputter) | MIT | multi-device input abstraction, last-input-type switching | idea: switch HUD glyphs on the last input type |
+| [bstummer/CutsceneService](https://github.com/bstummer/CutsceneService) | MIT | scripted camera cutscenes with easing, skippable | idea: intro = list of camera shots with eased pans + skip binding (`client/Intro`) |
+| [tralfa42real/roblox-round-framework](https://github.com/tralfa42real/roblox-round-framework) | MIT | server-owned round state machine (see M1 table above) | extended to the 3-night flow (Day → Night → Dawn → … → Showdown → Overdrive → Results) |
+
+Licences: the MIT projects above require the copyright notice only when code is copied; none was, but each is listed
+here as a courtesy. Creator Documentation is CC-BY-4.0 © Roblox Corporation.
+
 The z-fighting detector (`Logic/Coplanar`) and the wall/trim layout rules were written for this project.
 
 ## Audio
@@ -57,4 +74,9 @@ Roblox_UI_Whoosh_03 15674975792, CoinTransfer_01 127645268874265. Nothing upload
 
 ## Art
 
-All geometry is greybox parts built by script (`src/server/ManorBuilder.luau`). No Creator Store models in M1.
+All geometry is parts built by script (`src/server/ManorBuilder.luau`, `ManorDecor.luau`). **No Creator Store models
+in v1.0.** A shortlist of candidate free models (to vet before any use) is in `../store/creator-store-shortlist.md`;
+anything adopted later gets a row here with its creator and asset id.
+
+Store icon / thumbnail concepts in `../store/` were generated for Ottran Studios with an image model (Oct 29 2026);
+they are concepts, not final art.

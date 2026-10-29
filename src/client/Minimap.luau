@@ -242,7 +242,8 @@ function Minimap.objective(who: string?, phase: string, pos: Vector3)
 	end
 	if phase == "Night" and who == "Guest" then
 		for _, b in breakerSpecs do
-			local mdl = manor.Breakers:FindFirstChild("Breaker_" .. b.id)
+			local bf = manor:FindFirstChild("Breakers")
+			local mdl = bf and bf:FindFirstChild("Breaker_" .. b.id)
 			if mdl and mdl:GetAttribute("Tripped") then
 				table.insert(cands, { x = b.standX, y = b.y + RH, z = b.standZ, label = "BREAKER " .. b.id })
 			end
@@ -323,7 +324,10 @@ function Minimap.update(who: string?, phase: string)
 	for _, b in breakerSpecs do
 		local d = breakerDots[b.id]
 		d.Visible = b.level == level
-		local mdl = workspace:FindFirstChild("Map") and workspace.Map.Manor.Breakers:FindFirstChild("Breaker_" .. b.id)
+		local mp = workspace:FindFirstChild("Map")
+		local mn = mp and mp:FindFirstChild("Manor")
+		local bf = mn and mn:FindFirstChild("Breakers")
+		local mdl = bf and bf:FindFirstChild("Breaker_" .. b.id)
 		d.BackgroundColor3 = rgb(if mdl and mdl:GetAttribute("Tripped") then "BreakerBad" else "BreakerOk")
 	end
 	floorLabel.Text = Minimap.floorShort(level) -- short: legible at phone size (your room is lit up)

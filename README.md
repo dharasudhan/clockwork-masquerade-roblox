@@ -6,6 +6,31 @@ enormous" + "wall edges flicker"). Asymmetric chase with light sabotage: guests 
 1–2 Phantoms hide among them by day and hunt by night. Tagged guests become Electro-Wisps and keep playing.
 Secular 1920s inventor / steampunk-neon look, family-safe, **no ghosts** (deliberately not Ghost Mansion's look).
 
+> **v1.0 release candidate (Oct 29 2026).** The sections below from "M1.1 rules" on describe the M1.1 base; v1.0 adds a
+> 5-level manor (B1 Boiler Level, Ground, 1st, 2nd/Attic, Tower: 55 rooms, 80 doors, 4-stop lift, 6 breakers A–F),
+> 3 nights (Breaker → Blueprint Archives → Dawn Reboot finale), Expose voting, Mechanist/Illuminator gadgets,
+> progression / save v2 / daily / 9 badges, cosmetic shop (all Robux ids **0** = disabled), keyboard + gamepad input,
+> console safe area + portrait HUD, skippable 7-shot intro + guided first match. Bot-only balance: **44 % guest wins**.
+> Store kit + Murali's release checklist: `../store/` (`RELEASE-CHECKLIST.md`). Credits: `CREDITS.md`.
+
+## Streaming + performance budget (v1.0 RC)
+
+`Workspace.StreamingEnabled = true` (both project files): **StreamingTargetRadius 256**, **StreamingMinRadius 96**,
+**StreamingIntegrityMode PauseOutsideLoadedArea** (a player whose floor hasn't streamed in is paused, never falls).
+The manor footprint is ~180 × 160 studs over 5 levels, so on a normal device the target radius covers most of it;
+streaming mainly lets low-memory phones drop far rooms. Key interactables are **Persistent** models that never stream
+out: `Map.Manor.Breakers` (+ each `Breaker_*`), `Map.Manor.Lifts`, `Map.Manor.Props` (blueprint cabinets, Projector,
+Evidence Board, Exit Console, key pedestals). Clients only reach the map through `FindFirstChild` chains with nil
+guards (Minimap, PromptFilter, Guide) and `WaitForChild` for remotes/modules, so a streamed-out room just hides its
+minimap dot (chests) until it streams back. Round start asks the client to `RequestStreamAroundAsync` the ballroom
+before the teleport. Checked by `verify_place` (workspace settings) and the engine smoke (Persistent groups).
+
+**FPS / part-budget risk:** the built map is **3,537 BaseParts + 3,046 GUI objects** (SurfaceGui art, name plates,
+billboards), above the M1.1 budget of 3,000 parts. Only ballroom chandeliers cast shadows, decor is non-colliding,
+but Lighting is `Future` and there has been **no real-device test** yet. If a low-end phone drops below ~30 FPS:
+first switch Lighting to `ShadowMap`, then cut SurfaceGui art per room (`Config/Decor`), then lower
+StreamingTargetRadius to 160. Watch MicroProfiler + Developer Console (Memory → PlaceMemory) on the first phone test.
+
 Roblox target: universe `10773325724`, root place `80777289760756` (Murali's private experience, formerly
 "GhostMansionTest", repurposed). **Private. No Robux products.** Never touch universe `10773325904` (Ghost Mansion) —
 `scripts/luau_exec.py` refuses it. Build label: workspace attribute `CM_Version` = `M1.1`.
@@ -149,7 +174,12 @@ and retries 5×.
 Max Players **10**; Enable Studio Access to API Services (to test saves in Studio); keep the experience **Private**
 until Gate 6; rename the experience from "GhostMansionTest" when Murali wants.
 
-## Status (Oct 28 2026)
+## Status
+
+**Oct 29 2026 — v1.0 RC**: StreamingEnabled + Persistent interactables, CREDITS, store kit; local 72/72 specs,
+engine smoke 0 failures; see `../milestones.md` for cloud results and the published place version.
+
+### Oct 28 2026
 
 M1 built, tested, published (place v5) and playtested by Murali. **M1.1** (this version): local 59/59 specs + 21/21
 smoke steps, 0 z-fight faces; cloud 60/60 specs, boot OK (real-engine z-fight scan clean), real-engine bot round OK

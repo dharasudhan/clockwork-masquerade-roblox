@@ -31,6 +31,18 @@ return {
 		Win = cue(1836473398, "Victory Fanfare Sting", 0.7, { maxSeconds = 8 }),
 		Lose = cue(1840410813, "For Whom The Bell Tolls (B)", 0.6, { maxSeconds = 6 }),
 		Tokens = cue(127645268874265, "CoinTransfer_01", 0.6, { creator = "Roblox" }),
+		-- v1.0 item / event cues (re-use of the verified ids above, different volumes)
+		Charge = cue(15675046931, "Roblox_UI_Sweep", 0.5, { creator = "Roblox" }),
+		Glow = cue(15674975792, "Roblox_UI_Whoosh_03", 0.45, { creator = "Roblox" }),
+		Smoke = cue(15674975792, "Roblox_UI_Whoosh_03", 0.7, { creator = "Roblox" }),
+		Tick = cue(15675032796, "Roblox_UI_Small_Click", 0.7, { creator = "Roblox" }),
+		Bell = cue(1846269128, "Gong", 0.35, { maxSeconds = 2 }),
+		Boing = cue(15675046931, "Roblox_UI_Sweep", 0.7, { creator = "Roblox" }),
+		Pickup = cue(127645268874265, "CoinTransfer_01", 0.45, { creator = "Roblox" }),
+		Key = cue(1840004224, "Twinkle (a 30)", 0.5, { maxSeconds = 4 }),
+		Alarm = cue(1846269128, "Gong", 0.6, { maxSeconds = 3 }),
+		Expose = cue(1837718092, "Thermals (sting)", 0.6),
+		Overdrive = cue(1845411462, "Hollow Gong", 0.6, { maxSeconds = 6 }),
 	},
 	MusicFadeSeconds = 1.2,
 }

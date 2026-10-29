@@ -34,7 +34,7 @@ return function(t)
 		end)
 		it("repairing before the deadline still makes dawn; after it does not", function()
 			local deadline = Grid.repairDeadline(#N.breakers, N.nightSeconds, N.rebootFullSeconds)
-			expect(deadline).to.be.near(200) -- (240 - 200) * 5
+			expect(deadline).to.be.near((N.nightSeconds - N.rebootFullSeconds) * #N.breakers) -- (165 - 135) * 5 = 150
 			local function run(repairAt)
 				local s = Grid.new(N.breakers)
 				Grid.tamper(s, "A", 1)
@@ -49,7 +49,7 @@ return function(t)
 			expect(run(deadline - 4) >= 100).to.equal(true)
 			expect(run(deadline + 6) < 100).to.equal(true)
 		end)
-		it("two trips: both fixed by ~100 s still makes dawn; both left to 110 s does not", function()
+		it("two trips: both fixed by ~70 s still makes dawn; both left to 80 s does not", function()
 			local function run(at)
 				local s = Grid.new(N.breakers)
 				Grid.tamper(s, "A", 2)
@@ -63,8 +63,9 @@ return function(t)
 				end
 				return s.reboot
 			end
-			expect(run(95) >= 100).to.equal(true)
-			expect(run(110) < 100).to.equal(true)
+			-- budget 150 breaker-seconds over 2 trips = 75 s each
+			expect(run(70) >= 100).to.equal(true)
+			expect(run(80) < 100).to.equal(true)
 		end)
 	end)
 end

@@ -6,6 +6,11 @@
 -- w  = { phase, timeLeft, guests = {{id,x,y,z}}, phantoms = {{id,x,y,z}}, decoys = {{id,x,y,z}},
 --        chests = {{id,x,y,z}}, breakers = {{id,x,y,z,tampered}}, tampersLeft, room,
 --        fleeSpots = {{x,y,z}}, guestsInRoom }
+-- v1.0 adds: w.cabinets (Night 2 Day, unsearched), w.projector {x,y,z}, w.stage
+-- ("Showdown"/"Overdrive"), w.keys (free keys), w.console {x,y,z,radius}, w.trapsLeft,
+-- me.pages, me.carryKey, me.class, me.gadget (kind or nil) + me.gadgetReady; decisions may set
+-- gadget = true (+ faceX/faceZ to turn first), and actions "search" / "trap" / "slot" / "take" /
+-- "insert" (ids: cabinet / key).
 -- Distances are level-aware: flat distance + cfg.FloorCost per stud of height difference (a
 -- guest one floor up is "far" even when it is right overhead).
 local BotBrain = {}
@@ -129,6 +134,15 @@ function BotBrain.guest(me, w, cfg, gadgets, night)
 	end
 	if w.phase == "Day" then
 		local chest, cd = nearest(me, w.chests, nil, fc)
+		local cab, cbd = nearest(me, w.cabinets or {}, nil, fc)
+		if cab and (chest == nil or cbd < cd * 1.3) then
+			if cbd <= cfg.OpenRange - 1 and math.abs((cab.y or 0) - (me.y or 0)) < 6 then
+				out.action, out.id = "search", cab.id
+			else
+				moveTo(out, cab)
+			end
+			return out
+		end
 		if chest then
 			dayItems(me, w, out, cfg, chest, cd)
 			if cd <= cfg.OpenRange - 1 and math.abs((chest.y or 0) - (me.y or 0)) < 6 then
@@ -150,6 +164,62 @@ function BotBrain.guest(me, w, cfg, gadgets, night)
 	end
 	-- Night
 	local threat, td = nearest(me, w.phantoms, nil, fc)
+	if threat and me.gadgetReady and me.gadget then
+		if me.gadget == "strobe" and td <= 13 then
+			out.gadget, out.faceX, out.faceZ = true, threat.x, threat.z
+		elseif me.gadget == "barricade" and td <= 9 then
+			out.gadget = true
+		end
+	end
+	local finale = w.stage == "Showdown" or w.stage == "Overdrive"
+	if finale and not (threat and td <= cfg.PanicRadius) then
+		if w.stage == "Overdrive" and w.console then
+			if threat and td <= cfg.FleeRadius then
+				out.lantern = me.battery > 0
+				out.aimX, out.aimZ = threat.x, threat.z
+			end
+			local c = w.console
+			local r = (c.radius or 10) * 0.55
+			local tx, tz = c.x + (me.jx or 0) * r / 3, c.z + (me.jz or 0) * r / 3
+			if d3(me, { x = c.x, y = c.y, z = c.z }, fc) > r then
+				moveTo(out, { x = tx, y = c.y, z = tz })
+			end
+			return out
+		end
+		if me.carryKey and w.console then
+			local c = w.console
+			if d3(me, c, fc) <= cfg.StandRange + 3 then
+				out.action = "insert"
+			else
+				moveTo(out, c, true)
+				if has(me, "SpringBoots") then
+					out.item = "SpringBoots"
+				end
+			end
+			return out
+		end
+		local key, kd = nil, math.huge
+		for _, k in w.keys or {} do
+			local cost = d3(me, k, fc) + 45 * (k.claimed or 0)
+			if cost < kd then
+				key, kd = k, cost
+			end
+		end
+		if key then
+			kd = d3(me, key, fc)
+			out.keyTarget = key.id
+			if kd <= cfg.StandRange + 1 then
+				out.action, out.id = "take", key.id
+			else
+				moveTo(out, key, true)
+			end
+			return out
+		end
+		if w.console then
+			moveTo(out, w.console)
+			return out
+		end
+	end
 	if threat and td <= cfg.FleeRadius then
 		out.lantern = me.battery > 0
 		out.aimX, out.aimZ = threat.x, threat.z
@@ -173,6 +243,15 @@ function BotBrain.guest(me, w, cfg, gadgets, night)
 	end
 	if not out.item and has(me, "PocketWatch") then
 		out.item = "PocketWatch"
+	end
+	if (me.pages or 0) > 0 and w.projector then
+		local pd = d3(me, w.projector, fc)
+		if pd <= cfg.StandRange + 3 then
+			out.action = "slot"
+		else
+			moveTo(out, w.projector, true)
+		end
+		return out
 	end
 	local broken, bd = nearest(me, w.breakers, function(b)
 		return b.tampered
@@ -222,6 +301,20 @@ function BotBrain.phantom(me, w, cfg, gadgets, night)
 				return out
 			end
 		end
+		-- Night 2: trap a cabinet nobody is watching
+		if (w.trapsLeft or 0) > 0 and w.cabinets and #w.cabinets > 0 then
+			local cab, cbd = nearest(me, w.cabinets, function(c)
+				return not c.trapped and count(w.guests, c, cfg.WatchRadius, nil, fc) == 0
+			end, fc)
+			if cab then
+				if cbd <= cfg.OpenRange - 1 and math.abs((cab.y or 0) - (me.y or 0)) < 6 then
+					out.action, out.id = "trap", cab.id
+				else
+					moveTo(out, cab)
+				end
+				return out
+			end
+		end
 		-- blend in: search chests like a guest (decoy loot)
 		local chest, cd = nearest(me, w.chests, nil, fc)
 		if chest then
@@ -239,6 +332,12 @@ function BotBrain.phantom(me, w, cfg, gadgets, night)
 	for _, g in w.guests do
 		local dd = d3(me, g, fc)
 		local cost = dd + cfg.IsolationWeight * count(w.guests, g, cfg.GroupRadius, g.id, fc)
+		if g.carrier then
+			cost -= 40 -- stop the keys
+		end
+		if w.stage == "Overdrive" and w.console and d3(g, w.console, fc) <= (w.console.radius or 10) then
+			cost -= 30 -- clear the ring
+		end
 		if cost < bc then
 			best, bc, bdist = g, cost, dd
 		end
@@ -257,6 +356,11 @@ function BotBrain.phantom(me, w, cfg, gadgets, night)
 			out.action, out.id = "tag", best.id
 		else
 			moveTo(out, best)
+			if me.gadgetReady and me.gadget == "dash" and bdist > 6 and bdist <= 14 and math.abs((best.y or 0) - (me.y or 0)) < 4 then
+				out.gadget, out.faceX, out.faceZ = true, best.x, best.z
+			elseif me.gadgetReady and me.gadget == "glide" and bdist <= 9 and best.blocked then
+				out.gadget, out.faceX, out.faceZ = true, best.x, best.z
+			end
 		end
 	end
 	return out

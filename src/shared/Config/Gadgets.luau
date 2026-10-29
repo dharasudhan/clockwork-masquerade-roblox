@@ -45,12 +45,35 @@ return {
 		radius = 16, -- Phantoms inside are outlined for everyone
 		maxAlive = 2,
 	},
+	-- Guest classes (GDD "Mechanist and Illuminator first"); chosen in the lobby, saved.
+	Classes = {
+		Mechanist = {
+			name = "Mechanist", icon = "🔧", color = "Copper",
+			kid = "Fixes breakers fast. Drops a Spring Barricade!",
+			repairFactor = 1 / 1.5, -- repairs 50% faster
+			gadget = "barricade", gadgetName = "BARRICADE", cooldown = 30,
+		},
+		Illuminator = {
+			name = "Illuminator", icon = "🔦", color = "Amber",
+			kid = "Bigger, longer lantern. Strobe Flash freezes Phantoms!",
+			drainFactor = 0.6, -- battery drains 40% slower
+			extraHalfAngle = 8, -- wider cone
+			gadget = "strobe", gadgetName = "STROBE", cooldown = 60,
+		},
+	},
+	ClassOrder = { "Mechanist", "Illuminator" },
+	Barricade = { lifetime = 12, radius = 3.5, knockback = 8, freezeSeconds = 1.2, width = 7 },
+	Strobe = { range = 16, halfAngle = 40, freezeSeconds = 2 },
 	Rewards = {
-		played = 8, -- rounds are ~2.5x longer since M1.1
+		played = 10, -- a full 3-night match is ~12 minutes
 		win = 10,
 		perChest = 1,
 		perRepair = 3,
 		perTag = 2,
-		cap = 60,
+		cap = 90,
+		nightWon = 6, -- per night the player's side won
+		key = 4, -- per Master Override Key inserted
+		page = 3, -- per blueprint page slotted
+		expose = 5, -- per correct Expose vote
 	},
 }

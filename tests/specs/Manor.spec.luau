@@ -10,8 +10,8 @@ return function(t)
 		local cx, cz = ML.centre(r)
 		return { x = cx + (dx or 0), y = ML.baseY(Manor, r) + ML.RootHeight, z = cz + (dz or 0) }
 	end
-	describe("Manor layout (3 levels)", function()
-		it("is enormous: 3 levels, 30+ named rooms, ~3x the M1 floor area", function()
+	describe("Manor layout (5 levels: B1, G, 1F, 2F attic, tower)", function()
+		it("is enormous: 5 levels, 45+ named rooms, ~4x the M1 floor area", function()
 			local named, area, levels = 0, 0, {}
 			for _, r in Manor.Rooms do
 				if not r.stair and not r.lift then
@@ -22,9 +22,10 @@ return function(t)
 				end
 				levels[r.level] = true
 			end
-			expect(named >= 30).to.equal(true)
-			expect(levels[-1] and levels[0] and levels[1]).to.equal(true)
-			expect(area / 16632 >= 3).to.equal(true) -- M1 ground floor was 16,632 sq studs
+			expect(named >= 45).to.equal(true)
+			expect(levels[-1] and levels[0] and levels[1] and levels[2] and levels[3]).to.equal(true)
+			expect(#Manor.Levels).to.equal(5)
+			expect(area / 16632 >= 4).to.equal(true) -- M1 ground floor was 16,632 sq studs
 		end)
 		it("every door joins rooms that share an edge on its level and fits inside it", function()
 			for _, d in Manor.Doors do
@@ -62,30 +63,58 @@ return function(t)
 				end
 			end
 		end)
-		it("no dead-end floors: each level has >= 2 independent ways up/down (loops)", function()
-			local links = { [-1] = 0, [0] = 0, [1] = 0 }
+		it("every level is linked to the next by a stair; B1/G/1F/2F also by the lift; 6 staircases", function()
+			local links = {}
+			local stairs = 0
 			for _, r in Manor.Rooms do
 				local lo, hi = ML.span(r)
 				if r.stair then
-					links[lo] += 1
-					links[hi] += 1
-				end
-			end
-			links[-1] += 1 -- service lift stops on every level
-			links[0] += 1
-			links[1] += 1
-			expect(links[-1] >= 2 and links[0] >= 3 and links[1] >= 3).to.equal(true)
-			-- 2 grand staircases + a service stair
-			local stairs = 0
-			for _, r in Manor.Rooms do
-				if r.stair then
 					stairs += 1
+					links[lo .. ">" .. hi] = (links[lo .. ">" .. hi] or 0) + 1
 				end
 			end
-			expect(stairs).to.equal(3)
+			expect(stairs).to.equal(6)
+			expect(links["-1>0"]).to.equal(2) -- Cellar Stair (off the Foyer) + Service Stair
+			expect(links["0>1"]).to.equal(2) -- West + East Grand Stair
+			expect(links["1>2"]).to.equal(1) -- Attic Stair (+ the lift)
+			expect(links["2>3"]).to.equal(1) -- Tower Stair
+			local lifts = {}
+			for _, r in Manor.Rooms do
+				if r.lift then
+					lifts[r.level] = true
+				end
+			end
+			expect(lifts[-1] and lifts[0] and lifts[1] and lifts[2]).to.equal(true)
+		end)
+		it("the way down to B1 is visible from the Foyer: the Cellar Stair door opens off it", function()
+			local found = false
+			for _, d in Manor.Doors do
+				if (d.a == "foyer" and d.b == "cellarStair") or (d.b == "foyer" and d.a == "cellarStair") then
+					found = true
+					expect(ML.doorLevel(ML.ids(Manor), d)).to.equal(0)
+				end
+			end
+			expect(found).to.equal(true)
+			-- from the ballroom spawn, B1 is reached through the Foyer in a short walk
+			local len = ML.routeLength(Manor, pt("ballroom"), pt("coalStore"))
+			expect(len ~= nil and len < 140).to.equal(true)
+		end)
+		it("a walker reaches every level from the ballroom (routes go through stairs, top floor too)", function()
+			local function maxMin(route)
+				local hi, lo = -math.huge, math.huge
+				for _, p in route do
+					hi, lo = math.max(hi, p.y), math.min(lo, p.y)
+				end
+				return hi, lo
+			end
+			local hi = maxMin(ML.route(Manor, pt("ballroom"), pt("observatory")))
+			expect(hi > 60).to.equal(true)
+			local _, lo = maxMin(ML.route(Manor, pt("ballroom"), pt("wineCellar")))
+			expect(lo < -10).to.equal(true)
+			expect(ML.route(Manor, pt("lookout"), pt("laundry"))).to.be.ok()
 		end)
 		it("routes climb stairs through foot and head; basement trips use stair or lift", function()
-			local rt = ML.route(Manor, pt("ballroom"), pt("observatory"))
+			local rt = ML.route(Manor, pt("ballroom"), pt("study"))
 			local maxY = 0
 			for _, p in rt do
 				maxY = math.max(maxY, p.y)
@@ -151,17 +180,17 @@ return function(t)
 			local plate = { cx = 0, cy = 8, cz = 1.05, sx = 2, sy = 1, sz = 0.1 } -- back face on the wall
 			expect(#Coplanar.find({ wallA, plate }, nil, nil, { [2] = { "Front" } }) > 0).to.equal(true)
 		end)
-		it("5 breakers on all 3 floors; chest spots 35-45 inside rooms, clear of doors", function()
+		it("6 breakers over all 5 levels; chest spots 50-60 inside rooms, clear of doors", function()
 			local bs = ML.breakers(Manor)
-			expect(#bs).to.equal(5)
+			expect(#bs).to.equal(6)
 			local lv = {}
 			for _, b in bs do
 				expect(ML.roomAt(Manor, b.x, b.y + 3, b.z)).to.equal(b.room)
 				lv[b.level] = true
 			end
-			expect(lv[-1] and lv[0] and lv[1]).to.equal(true)
+			expect(lv[-1] and lv[0] and lv[1] and lv[2] and lv[3]).to.equal(true)
 			local spots = ML.chestSpots(Manor)
-			expect(#spots >= 35 and #spots <= 45).to.equal(true)
+			expect(#spots >= 50 and #spots <= 60).to.equal(true)
 			for _, c in spots do
 				expect(ML.roomAt(Manor, c.x, c.y + 3, c.z)).to.equal(c.room)
 				for _, d in Manor.Doors do
@@ -184,6 +213,10 @@ return function(t)
 			expect(ML.roomAt(Manor, -60, 3, -20)).to.equal("library")
 			expect(ML.roomAt(Manor, 60, -17, 0)).to.equal("generator")
 			expect(ML.roomAt(Manor, -51, 13, 15)).to.equal("westStair")
+			expect(ML.roomAt(Manor, 21, -10, 45)).to.equal("cellarStair")
+			expect(ML.roomAt(Manor, 20, 43, -5)).to.equal("automata")
+			expect(ML.roomAt(Manor, 27, 63, -57)).to.equal("observatory")
+			expect(ML.levelName(Manor, -1)).to.equal("B1 Boiler Level")
 		end)
 	end)
 end

@@ -5,4 +5,6 @@ return {
 	Breaker = { w = 5, h = 1.6, maxDistance = 45 },
 	Chest = { w = 3, h = 0.8, maxDistance = 22 },
 	LobbySign = { w = 14, h = 3, maxDistance = 90 },
+	Emote = { w = 2.6, h = 2.6, maxDistance = 60 },
+	Ribbon = { w = 4, h = 0.9, maxDistance = 35 },
 }

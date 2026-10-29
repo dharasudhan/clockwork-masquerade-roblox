@@ -8,25 +8,28 @@ local Items = {}
 
 Items.Order = { "DryCell", "GlowStick", "SmokePellet", "SpringBoots", "ClockworkDecoy", "TripwireBell", "PocketWatch", "CopperWire", "BrassWrench" }
 
+-- icon = a big emoji glyph shown on item chips, the pick-up card and the hotbar (readable by young
+-- players); kid = the one-line, very short pick-up description; tip = the inventory tooltip;
+-- sfx = the use sound (Config/Audio.Sfx); model = the held/world model (Logic/ItemModels).
 Items.Defs = {
-	DryCell = { name = "Dry-cell", short = "CELL", color = "Warm", cap = 3, consume = true, phases = { "Night" }, cooldown = 1, use = "cell",
-		hint = "Recharges your lantern +45 s" },
-	CopperWire = { name = "Copper wire", short = "WIRE", color = "Copper", cap = 2, consume = false, phases = {}, use = nil,
-		hint = "Passive: halves repair time (used up when a repair finishes)" },
-	GlowStick = { name = "Glow-stick", short = "GLOW", color = "Glow", cap = 3, consume = true, phases = { "Night" }, cooldown = 2, use = "glow",
-		hint = "Drop it: Phantoms nearby glow through walls" },
-	BrassWrench = { name = "Brass wrench", short = "WRCH", color = "Brass", cap = 1, consume = false, phases = {}, use = nil,
-		hint = "Passive: repairs 40% faster" },
-	SmokePellet = { name = "Smoke pellet", short = "SMOK", color = "Smoke", cap = 2, consume = true, phases = { "Night" }, cooldown = 6, use = "smoke",
-		hint = "Blink forward in a puff of smoke - can't be tagged for a moment" },
-	PocketWatch = { name = "Pocket watch", short = "WTCH", color = "Cream", cap = 1, consume = false, phases = { "Day", "Night" }, cooldown = 30, use = "watch",
-		hint = "Day: how many breakers were tampered. Night: dawn ETA + breaker status" },
-	TripwireBell = { name = "Tripwire bell", short = "BELL", color = "Bell", cap = 2, consume = true, phases = { "Day", "Night" }, cooldown = 3, use = "bell",
-		hint = "Set a bell: it rings for everyone when a Phantom passes at night" },
-	SpringBoots = { name = "Spring boots", short = "BOOT", color = "Spring", cap = 2, consume = true, phases = { "Day", "Night" }, cooldown = 4, use = "boots",
-		hint = "Short speed burst" },
-	ClockworkDecoy = { name = "Clockwork decoy", short = "DCOY", color = "Decoy", cap = 1, consume = true, phases = { "Night" }, cooldown = 5, use = "decoy",
-		hint = "Wind up a ticking decoy that lures Phantoms" },
+	DryCell = { name = "Dry-cell", short = "CELL", icon = "🔋", color = "Warm", cap = 3, consume = true, phases = { "Night" }, cooldown = 1, use = "cell",
+		hint = "Recharges your lantern +45 s", kid = "Power for your lantern!", tip = "Night: tap USE to fill your lantern (+45 s of light).", sfx = "Charge", model = "cell" },
+	CopperWire = { name = "Copper wire", short = "WIRE", icon = "🧵", color = "Copper", cap = 2, consume = false, phases = {}, use = nil,
+		hint = "Passive: halves repair time (used up when a repair finishes)", kid = "Fix breakers twice as fast!", tip = "Just carry it: repairs take half the time. Used up after one repair.", model = "wire" },
+	GlowStick = { name = "Glow-stick", short = "GLOW", icon = "🟢", color = "Glow", cap = 3, consume = true, phases = { "Night" }, cooldown = 2, use = "glow",
+		hint = "Drop it: Phantoms nearby glow through walls", kid = "Makes hidden Phantoms glow!", tip = "Night: drop it. Phantoms close to it glow through walls for 45 s.", sfx = "Glow", model = "glow" },
+	BrassWrench = { name = "Brass wrench", short = "WRCH", icon = "🔧", color = "Brass", cap = 1, consume = false, phases = {}, use = nil,
+		hint = "Passive: repairs 40% faster", kid = "Fix things faster!", tip = "Just carry it: every repair is 40% faster. Never used up.", model = "wrench" },
+	SmokePellet = { name = "Smoke pellet", short = "SMOK", icon = "💨", color = "Smoke", cap = 2, consume = true, phases = { "Night" }, cooldown = 6, use = "smoke",
+		hint = "Blink forward in a puff of smoke - can't be tagged for a moment", kid = "Poof! Zip away from a Phantom!", tip = "Night: jump forward in smoke. Phantoms can't tag you for a moment.", sfx = "Smoke", model = "smoke" },
+	PocketWatch = { name = "Pocket watch", short = "WTCH", icon = "⌚", color = "Cream", cap = 1, consume = false, phases = { "Day", "Night" }, cooldown = 30, use = "watch",
+		hint = "Day: how many breakers were tampered. Night: dawn ETA + breaker status", kid = "Tells you secret clues!", tip = "Day: how many breakers were broken. Night: when dawn comes and which breakers are down.", sfx = "Tick", model = "watch" },
+	TripwireBell = { name = "Tripwire bell", short = "BELL", icon = "🔔", color = "Bell", cap = 2, consume = true, phases = { "Day", "Night" }, cooldown = 3, use = "bell",
+		hint = "Set a bell: it rings for everyone when a Phantom passes at night", kid = "Rings when a Phantom sneaks by!", tip = "Set it down. At night it rings and shows on the map when a Phantom walks past.", sfx = "Bell", model = "bell" },
+	SpringBoots = { name = "Spring boots", short = "BOOT", icon = "👢", color = "Spring", cap = 2, consume = true, phases = { "Day", "Night" }, cooldown = 4, use = "boots",
+		hint = "Short speed burst", kid = "Run super fast!", tip = "Tap USE: run 1.5x faster for 3 s.", sfx = "Boing", model = "boots" },
+	ClockworkDecoy = { name = "Clockwork decoy", short = "DCOY", icon = "🧸", color = "Decoy", cap = 1, consume = true, phases = { "Night" }, cooldown = 5, use = "decoy",
+		hint = "Wind up a ticking decoy that lures Phantoms", kid = "A ticking toy that tricks Phantoms!", tip = "Night: drop a ticking toy. Phantoms chase it and waste their tag.", sfx = "Tick", model = "decoy" },
 }
 
 -- effect tuning

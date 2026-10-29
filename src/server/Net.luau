@@ -48,6 +48,10 @@ function Net.sfx(target: any, cue: string)
 	end
 end
 
+function Net.sendAll(payload)
+	Net.Notify:FireAllClients(payload)
+end
+
 function Net.send(player: Player, payload)
 	Net.Notify:FireClient(player, payload)
 end

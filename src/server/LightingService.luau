@@ -39,7 +39,10 @@ function LightingService.apply(name: string)
 	local color = Build.rgb(p.room.color)
 	for _, lights in roomLights() do
 		for _, l in lights do
-			l.Color = color
+			-- by day / in the lobby each room keeps its own light colour (Config/Decor)
+			local own = if p.room.roomColors then l:GetAttribute("DayColor") else nil
+			local lc = if typeof(own) == "Color3" then own else color
+			l.Color = lc
 			l.Brightness = p.room.brightness
 			l.Range = p.room.range
 			l.Enabled = true
@@ -48,7 +51,7 @@ function LightingService.apply(name: string)
 			if m then
 				for _, d in m:GetChildren() do
 					if d:IsA("BasePart") and d.Material == Enum.Material.Neon then
-						d.Color = color
+						d.Color = lc
 					end
 				end
 			end

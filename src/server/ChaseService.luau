@@ -11,6 +11,7 @@ local Cooldown = require(Shared.Logic.Cooldown)
 local Loot = require(Shared.Logic.Loot)
 local ManorLayout = require(Shared.Logic.ManorLayout)
 local Items = require(Shared.Config.Items)
+local Match = require(Shared.Config.Match)
 local Build = require(script.Parent.Build)
 local Participants = require(script.Parent.Participants)
 local LanternService = require(script.Parent.LanternService)
@@ -24,7 +25,14 @@ local ChaseService = {}
 local P, W, B, GS = Gadgets.Phantom, Gadgets.Wisp, Gadgets.Bubble, Gadgets.GlowStick
 local slicks: { any } = {}
 local glows: { any } = {}
-local hooks = { tagged = nil :: any, decoys = nil :: any, decoyTagged = nil :: any }
+local hooks = { tagged = nil :: any, decoys = nil :: any, decoyTagged = nil :: any, phantomSpeed = nil :: any, carryFactor = nil :: any, barrier = nil :: any }
+
+-- v1.0 modifiers: finale Phantom speed (Overdrive), key carrier slowdown, projector barrier
+function ChaseService.setModifiers(phantomSpeed, carryFactor, barrier)
+	hooks.phantomSpeed = phantomSpeed
+	hooks.carryFactor = carryFactor
+	hooks.barrier = barrier
+end
 
 local GROUP_CHARS, GROUP_WISPS = "CMChars", "CMWisps"
 local groupsReady = false
@@ -98,6 +106,15 @@ local function maskOn(p)
 		Build.weld(mask, horn)
 	end
 	Build.light(mask, "PointLight", Build.color("MaskNeon"), 2, 12)
+	local mq = m:FindFirstChild("MasqueradeMask") :: BasePart?
+	if mq then
+		mq.Transparency = 1
+		for _, d in mq:GetChildren() do
+			if d:IsA("BasePart") then
+				d.Transparency = 1
+			end
+		end
+	end
 	local hl = Instance.new("Highlight")
 	hl.Name = "PhantomGlow"
 	hl.FillColor = Build.color("VioletNeon")
@@ -175,6 +192,9 @@ function ChaseService.tryTag(p, targetId: string?): boolean
 		return false
 	end
 	local now = Clock.now()
+	if now < (p.frozenUntil or 0) or now < (p.stunUntil or 0) then
+		return false
+	end
 	if not Cooldown.ready(p.lastTag, P.tagCooldown, now) then
 		return false
 	end
@@ -267,6 +287,23 @@ local function becomeWisp(p)
 	pe.Speed = NumberRange.new(0.5, 1.5)
 	pe.Size = NumberSequence.new(0.25, 0)
 	pe.Parent = orb
+	local a0 = Instance.new("Attachment")
+	a0.Name = "TrailA"
+	a0.Position = Vector3.new(0, 0.6, 0)
+	a0.Parent = orb
+	local a1 = Instance.new("Attachment")
+	a1.Name = "TrailB"
+	a1.Position = Vector3.new(0, -0.6, 0)
+	a1.Parent = orb
+	local trail = Instance.new("Trail")
+	trail.Name = "WispTrail"
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Color = ColorSequence.new(Build.color(p.trailColor or "Wisp"))
+	trail.LightEmission = 1
+	trail.Lifetime = 0.6
+	trail.Transparency = NumberSequence.new(0.2, 1)
+	trail.Parent = orb
 	setGroup(m, GROUP_WISPS)
 	setState(p, "Wisp")
 	Participants.set(p, "FlickerReadyAt", 0)
@@ -408,13 +445,31 @@ function ChaseService.step(dt: number)
 					end
 				end
 				local hl = p.model and p.model:FindFirstChild("PhantomGlow") :: Highlight?
+				if p.revealUntil and now < p.revealUntil then
+					revealed = true -- exposed at the Evidence Board
+				end
 				if hl then
 					hl.DepthMode = if revealed then Enum.HighlightDepthMode.AlwaysOnTop else Enum.HighlightDepthMode.Occluded
 				end
 				Participants.set(p, "Revealed", revealed)
 				local beams = LanternService.beamsOn(p.id)
 				local recoil = if p.lastTag and now - p.lastTag < P.recoilSeconds then P.recoilFactor else 1
-				setSpeed(p, if p.transformed then P.nightSpeed * Lantern.speedFactor(beams, Gadgets.Lantern) * recoil else 0)
+				local held = now < (p.frozenUntil or 0) or now < (p.stunUntil or 0)
+				local mul = if hooks.phantomSpeed then hooks.phantomSpeed() else 1
+				setSpeed(p, if p.transformed and not held then P.nightSpeed * mul * Lantern.speedFactor(beams, Gadgets.Lantern) * recoil else 0)
+				-- the projector's light barrier (Night 2) pushes Phantoms out
+				local bar = hooks.barrier and hooks.barrier()
+				if bar and pos and math.abs(pos.Y - (bar.y + 3)) < 7 then
+					local v = Vector3.new(pos.X - bar.x, 0, pos.Z - bar.z)
+					if v.Magnitude < bar.radius then
+						local away = if v.Magnitude > 0.1 then v.Unit else Vector3.new(1, 0, 0)
+						local root = Participants.root(p)
+						local to = Vector3.new(bar.x, pos.Y, bar.z) + away * (bar.radius + 0.5)
+						if root and ManorLayout.roomAt(Manor, to.X, to.Y, to.Z) then
+							p.model:PivotTo(CFrame.new(to) * (root.CFrame - root.CFrame.Position))
+						end
+					end
+				end
 			else
 				local boost = if now < (p.boostUntil or 0) then Items.Boots.factor else 1
 				setSpeed(p, P.daySpeed * boost)
@@ -431,9 +486,121 @@ function ChaseService.step(dt: number)
 			end
 			Participants.set(p, "Slowed", slowed)
 			local boost = if now < (p.boostUntil or 0) then Items.Boots.factor else 1
-			setSpeed(p, Gadgets.Guest.walkSpeed * (if slowed then W.slickSlow else 1) * boost)
+			local shaken = if now < (p.shakenUntil or 0) then Match.Expose.shakenFactor else 1
+			local carry = if hooks.carryFactor then hooks.carryFactor(p) else 1
+			setSpeed(p, Gadgets.Guest.walkSpeed * (if slowed then W.slickSlow else 1) * boost * shaken * carry)
 		end
 	end
+end
+
+-- Finale: wake every Electro-Wisp (and bubbled guest) up as a guest where it is. Returns count.
+function ChaseService.reviveWisps(): number
+	local n = 0
+	for _, p in Participants.all() do
+		if p.role == "Guest" and (p.state == "Wisp" or p.state == "Bubble") then
+			local m = p.model
+			if p.bubblePart then
+				p.bubblePart:Destroy()
+				p.bubblePart = nil
+			end
+			local root = Participants.root(p)
+			if root then
+				root.Anchored = false
+			end
+			if m then
+				local o = m:FindFirstChild("WispOrb")
+				if o then
+					o:Destroy()
+				end
+				for _, d in m:GetDescendants() do
+					if d:IsA("BasePart") and d ~= root and d.Name ~= "LanternLamp" then
+						d.Transparency = 0
+					elseif d:IsA("Decal") then
+						d.Transparency = 0
+					end
+				end
+				setGroup(m, GROUP_CHARS)
+			end
+			setState(p, "Guest")
+			p.immuneUntil = Clock.now() + 3
+			Participants.set(p, "ImmuneUntil", p.immuneUntil)
+			n += 1
+		end
+	end
+	return n
+end
+
+-- Dawn between nights: tagged guests wake up as guests, Phantoms put their disguise back on.
+function ChaseService.dawn()
+	for _, p in Participants.all() do
+		local m = p.model
+		if p.bubblePart then
+			p.bubblePart:Destroy()
+			p.bubblePart = nil
+		end
+		local root = Participants.root(p)
+		if root then
+			root.Anchored = false
+		end
+		if p.role == "Guest" and (p.state == "Wisp" or p.state == "Bubble") then
+			if m then
+				for _, n in { "WispOrb" } do
+					local o = m:FindFirstChild(n)
+					if o then
+						o:Destroy()
+					end
+				end
+				for _, d in m:GetDescendants() do
+					if d:IsA("BasePart") and d ~= root and d.Name ~= "WispRing" and d.Name ~= "LanternLamp" then
+						d.Transparency = 0
+					elseif d:IsA("Decal") then
+						d.Transparency = 0
+					end
+				end
+				setGroup(m, GROUP_CHARS)
+			end
+			setState(p, "Guest")
+			p.revived = (p.revived or 0) + 1
+		elseif p.role == "Phantom" then
+			if m then
+				for _, n in { "PhantomMask", "PhantomGlow" } do
+					local o = m:FindFirstChild(n)
+					if o then
+						o:Destroy()
+					end
+				end
+				local mq = m:FindFirstChild("MasqueradeMask") :: BasePart?
+				if mq then
+					mq.Transparency = 0
+					for _, d in mq:GetChildren() do
+						if d:IsA("BasePart") then
+							d.Transparency = 0
+						end
+					end
+				end
+			end
+			setState(p, "Guest") -- looks like a guest again by day
+			p.state = "Guest"
+			Participants.set(p, "PState", "Guest")
+			p.transformed = false
+			Participants.set(p, "Transforming", nil)
+			Participants.set(p, "Revealed", nil)
+			Participants.set(p, "Exposed", nil)
+		end
+		p.frozenUntil, p.stunUntil, p.shakenUntil, p.revealUntil = nil, nil, nil, nil
+		Participants.set(p, "FrozenUntil", nil)
+		Participants.set(p, "StunUntil", nil)
+		Participants.set(p, "ShakenUntil", nil)
+	end
+	for _, sl in slicks do
+		sl.part:Destroy()
+	end
+	for _, g in glows do
+		g.part:Destroy()
+	end
+	table.clear(slicks)
+	table.clear(glows)
+	LightingService.stopFlicker()
 end
 
 -- A respawned character (fell, reset) gets its round look back.

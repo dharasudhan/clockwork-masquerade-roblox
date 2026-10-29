@@ -6,6 +6,7 @@ local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Grid = require(Shared.Logic.Grid)
 local Channel = require(Shared.Logic.Channel)
 local Items = require(Shared.Config.Items)
+local Gadgets = require(Shared.Config.Gadgets)
 local Build = require(script.Parent.Build)
 local Participants = require(script.Parent.Participants)
 local ManorBuilder = require(script.Parent.ManorBuilder)
@@ -19,7 +20,11 @@ local state: any = nil
 local night: any = nil
 local tamperCh: { [string]: any } = {} -- participant id -> channel
 local repairCh: { [string]: any } = {}
-local hooks = { tampered = nil :: any, repaired = nil :: any }
+local hooks = { tampered = nil :: any, repaired = nil :: any, inspect = nil :: any }
+
+function GridService.onInspect(cb)
+	hooks.inspect = cb
+end
 
 function GridService.onTampered(cb)
 	hooks.tampered = cb
@@ -40,14 +45,15 @@ local function visuals()
 	local isNight = phase() == "Night"
 	for id, h in b.breakers do
 		local br = state.breakers[id]
-		local showBad = br and br.tampered and isNight
+		local showBad = br ~= nil and br.tampered == true and isNight
 		local color = Build.color(if showBad then "BreakerBad" else "BreakerOk")
 		h.status.Color = color
 		h.light.Color = color
 		h.sparks.Enabled = showBad
 		h.label.Text = if showBad
 			then string.format("BREAKER %s - TRIPPED %d%%", id, math.floor((br.repair or 0) * 100))
-			else "BREAKER " .. id .. " - ONLINE"
+			elseif br then "BREAKER " .. id .. " - ONLINE"
+			else "BREAKER " .. id
 		h.model:SetAttribute("Tripped", showBad)
 		h.model:SetAttribute("RepairProgress", if showBad then br.repair else 0)
 	end
@@ -86,6 +92,24 @@ local function ensurePrompts()
 		rp:SetAttribute("ForPhase", "Night")
 		rp:SetAttribute("NeedsTripped", true)
 		rp.Parent = h.prompt
+		local ip = Instance.new("ProximityPrompt")
+		ip.Name = "Inspect"
+		ip.ActionText = "Look for clues"
+		ip.ObjectText = "Breaker " .. id
+		ip.HoldDuration = 1
+		ip.MaxActivationDistance = 8
+		ip.RequiresLineOfSight = false
+		ip.UIOffset = Vector2.new(0, 60)
+		ip.KeyboardKeyCode = Enum.KeyCode.R
+		ip:SetAttribute("ForRole", "Any")
+		ip:SetAttribute("ForPhase", "Day")
+		ip.Parent = h.prompt
+		ip.Triggered:Connect(function(player)
+			local p = Participants.ofPlayer(player)
+			if p and hooks.inspect then
+				hooks.inspect(p, id)
+			end
+		end)
 		rp.Triggered:Connect(function(player)
 			local p = Participants.ofPlayer(player)
 			if p then
@@ -129,6 +153,9 @@ function GridService.repairTime(p): number
 	local secs = if (p.inv.CopperWire or 0) > 0 then night.repairSecondsWithWire else night.repairSeconds
 	if (p.inv.BrassWrench or 0) > 0 then
 		secs *= Items.Wrench.repairFactor
+	end
+	if p.class == "Mechanist" then
+		secs *= Gadgets.Classes.Mechanist.repairFactor
 	end
 	return secs
 end

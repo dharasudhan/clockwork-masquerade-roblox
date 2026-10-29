@@ -187,6 +187,59 @@ function Minimap.objective(who: string?, phase: string, pos: Vector3)
 	local cands = {}
 	local RH = ManorLayout.RootHeight
 	local looksGuest = who == "Guest" or (who == "Phantom" and phase == "Day")
+	local me = Players.LocalPlayer
+	local props = manor:FindFirstChild("Props")
+	local stage = workspace:GetAttribute("CM_Stage")
+	local nightNo = workspace:GetAttribute("CM_Night")
+	local function propPos(part: BasePart?, dz: number?)
+		if not part then
+			return nil
+		end
+		local p = part.CFrame.Position
+		return p.X, ManorLayout.levelAt(Manor, p.Y) * Manor.LevelHeight + RH, p.Z + (dz or 0)
+	end
+	-- v1.0 night objectives first (finale keys / ring, projector pages, cabinets)
+	if props and phase == "Night" and who == "Guest" and stage then
+		local console = props:FindFirstChild("ExitConsole")
+		local body = console and console:FindFirstChild("ConsoleBody") :: BasePart?
+		if stage == "Overdrive" or (me and me:GetAttribute("CarryKey")) then
+			local x, y, z = propPos(body, 4)
+			if x then
+				table.insert(cands, { x = x, y = y, z = z, label = if stage == "Overdrive" then "DAWN RING" else "EXIT CONSOLE" })
+			end
+		else
+			for _, d in props:GetChildren() do
+				local tp = d:IsA("BasePart") and string.sub(d.Name, 1, 12) == "KeyPedestal_" and d:FindFirstChild("PromptPoint")
+				local pr = tp and tp:FindFirstChild("TakeKey")
+				if pr and not pr:GetAttribute("Done") then
+					local x, y, z = propPos(d :: BasePart, 0)
+					table.insert(cands, { x = x + 2, y = y, z = z, label = "GOLDEN KEY" })
+				end
+			end
+		end
+		if #cands > 0 then
+			return closest(pos, cands)
+		end
+	end
+	if props and phase == "Night" and who == "Guest" and nightNo == 2 and me and (me:GetAttribute("Pages") or 0) > 0 then
+		local pr = props:FindFirstChild("Projector")
+		local x, y, z = propPos(pr and pr:FindFirstChild("ProjectorStand") :: BasePart?, 3)
+		if x then
+			return { x = x, y = y, z = z, label = "PROJECTOR" }
+		end
+	end
+	if props and phase == "Day" and looksGuest and nightNo == 2 then
+		for _, d in props:GetChildren() do
+			local body = d:IsA("Model") and d:FindFirstChild("Cabinet") :: BasePart?
+			local pp = body and body:FindFirstChild("PromptPoint")
+			local pr = pp and pp:FindFirstChild("Search")
+			if pr and not pr:GetAttribute("Done") then
+				local x, y, z = propPos(body, 0)
+				local into = (pp :: Attachment).WorldPosition
+				table.insert(cands, { x = into.X, y = y, z = into.Z, label = "CABINET" })
+			end
+		end
+	end
 	if phase == "Night" and who == "Guest" then
 		for _, b in breakerSpecs do
 			local mdl = manor.Breakers:FindFirstChild("Breaker_" .. b.id)
@@ -231,6 +284,15 @@ function Minimap.objective(who: string?, phase: string, pos: Vector3)
 	return closest(pos, cands)
 end
 
+function Minimap.floorShort(level: number): string
+	for _, l in Manor.Levels do
+		if l.level == level then
+			return l.hud
+		end
+	end
+	return "LEVEL " .. level
+end
+
 local function facingAngle(look: Vector3): number
 	-- clockwise degrees from north (-z) on the north-up map
 	return math.deg(math.atan2(look.X, -look.Z))
@@ -264,8 +326,7 @@ function Minimap.update(who: string?, phase: string)
 		local mdl = workspace:FindFirstChild("Map") and workspace.Map.Manor.Breakers:FindFirstChild("Breaker_" .. b.id)
 		d.BackgroundColor3 = rgb(if mdl and mdl:GetAttribute("Tripped") then "BreakerBad" else "BreakerOk")
 	end
-	local floorName = ManorLayout.levelName(Manor, level)
-	floorLabel.Text = string.upper(floorName) -- short: legible at phone size (your room is lit up)
+	floorLabel.Text = Minimap.floorShort(level) -- short: legible at phone size (your room is lit up)
 	local u, v = Minimap.toMap(pos.X, pos.Z)
 	me.Position = UDim2.fromScale(u, v)
 	local look = root.CFrame.LookVector

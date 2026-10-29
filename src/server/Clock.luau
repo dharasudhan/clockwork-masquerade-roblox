@@ -11,6 +11,15 @@ function Clock.now(): number
 	return workspace:GetServerTimeNow()
 end
 
+-- wall-clock seconds (daily rewards); tests can shift it by whole days
+local wallShift = 0
+function Clock.wall(): number
+	return os.time() + wallShift
+end
+function Clock.shiftWall(seconds: number)
+	wallShift += seconds
+end
+
 function Clock.setFake(t: number?)
 	fake = t
 end

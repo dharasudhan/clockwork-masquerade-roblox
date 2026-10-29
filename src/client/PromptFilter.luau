@@ -13,6 +13,17 @@ function PromptFilter.allowed(prompt: Instance, phase: string, role: string?, ps
 	if forPhase and forPhase ~= phase then
 		return false
 	end
+	local forNight = prompt:GetAttribute("ForNight")
+	if forNight and forNight ~= workspace:GetAttribute("CM_Night") then
+		return false
+	end
+	local needs = prompt:GetAttribute("NeedsAttr")
+	if needs then
+		local v = State.attr(needs)
+		if v == nil or v == 0 or v == false then
+			return false
+		end
+	end
 	if role == nil or pstate == "Bubble" then
 		return false
 	end

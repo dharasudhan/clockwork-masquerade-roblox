@@ -9,6 +9,7 @@ local Items = require(Shared.Config.Items)
 local ManorLayout = require(Shared.Logic.ManorLayout)
 local Loot = require(Shared.Logic.Loot)
 local Billboard = require(Shared.Billboard)
+local ItemModels = require(Shared.ItemModels)
 local Build = require(script.Parent.Build)
 local Participants = require(script.Parent.Participants)
 local ManorBuilder = require(script.Parent.ManorBuilder)
@@ -123,9 +124,12 @@ function ChestService.open(p, id: string): string?
 	p.stats.chests += 1
 	Participants.set(p, item, p.inv[item])
 	if p.player then
-		Net.toast(p.player, if added then "+1 " .. ItemNames[item] else ItemNames[item] .. " - you can't carry more", "TealNeon")
+		local def = Items.Defs[item]
+		-- the pick-up card: big icon + very short kid-friendly line
+		Net.send(p.player, { kind = "item", item = item, icon = def.icon, name = def.name, kid = if added then def.kid else "Your pockets are full!", full = not added })
 		Net.sfx(p.player, "Chest")
 	end
+	ChestService.popModel(c, item)
 	-- opened chests sink their lid glow
 	local latch = c.model:FindFirstChild("Latch")
 	if latch then
@@ -144,6 +148,27 @@ function ChestService.open(p, id: string): string?
 		openHook(p, item)
 	end
 	return if added then item else "full"
+end
+
+-- the found item pops out of the chest for a moment (everyone sees it)
+function ChestService.popModel(c, item: string)
+	local def = Items.Defs[item]
+	local m = def and ItemModels.build(def.model or "cell")
+	if not m then
+		return
+	end
+	m:PivotTo(CFrame.new(c.x, c.y + 3.6, c.z))
+	for _, d in m:GetDescendants() do
+		if d:IsA("BasePart") then
+			d.Anchored = true
+		end
+	end
+	local h = m.PrimaryPart :: BasePart
+	Build.light(h, "PointLight", Build.color(def.color), 1.5, 8)
+	m.Parent = workspace:FindFirstChild("Effects") or Build.folder("Effects", workspace)
+	task.delay(1.6, function()
+		m:Destroy()
+	end)
 end
 
 ChestService.ItemNames = ItemNames

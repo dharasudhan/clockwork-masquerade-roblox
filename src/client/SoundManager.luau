@@ -11,6 +11,7 @@ local byId: { [number]: Sound } = {} -- one Sound per unique id (Lobby + Day sha
 local current: string? = nil
 local currentSound: Sound? = nil
 local folder: Folder? = nil
+local musicOn, sfxOn = true, true
 
 local function make(name: string, c, looped: boolean): Sound
 	local s = Instance.new("Sound")
@@ -34,6 +35,9 @@ function SoundManager.init()
 end
 
 local function fade(s: Sound, to: number)
+	if not musicOn then
+		to = 0
+	end
 	local ok = pcall(function()
 		TweenService:Create(s, TweenInfo.new(Audio.MusicFadeSeconds), { Volume = to }):Play()
 	end)
@@ -70,9 +74,22 @@ function SoundManager.setPhase(phase: string)
 	end
 end
 
+-- Settings: music / sound effects on or off (saved per player).
+function SoundManager.setEnabled(music: boolean, sfx: boolean)
+	local changed = music ~= musicOn
+	musicOn, sfxOn = music, sfx
+	if changed and currentSound and current then
+		fade(currentSound, Audio.Music[current].volume)
+	end
+end
+
+function SoundManager.enabled(): (boolean, boolean)
+	return musicOn, sfxOn
+end
+
 function SoundManager.sfx(cue: string)
 	local c = Audio.Sfx[cue]
-	if not c or not folder then
+	if not c or not folder or not sfxOn then
 		return
 	end
 	local s = make("Sfx_" .. cue, c, false)

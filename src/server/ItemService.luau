@@ -12,6 +12,7 @@ local Manor = require(Shared.Config.Manor)
 local Grid = require(Shared.Logic.Grid)
 local Loot = require(Shared.Logic.Loot)
 local ManorLayout = require(Shared.Logic.ManorLayout)
+local ItemModels = require(Shared.ItemModels)
 local Build = require(script.Parent.Build)
 local Participants = require(script.Parent.Participants)
 local LanternService = require(script.Parent.LanternService)
@@ -255,10 +256,85 @@ function ItemService.use(p, id: any, opts: any?): (boolean, string?)
 	p.itemAt[id] = now
 	Participants.set(p, "ReadyAt_" .. id, now + (def.cooldown or 0))
 	p.stats.items = (p.stats.items or 0) + 1
+	ItemService.feedback(p, id)
 	if hooks.used then
 		hooks.used(p, id)
 	end
 	return true, nil
+end
+
+-- Visible + audible feedback for every use: a short particle burst on the user in the item's
+-- colour, the item's use sound for the user, and an "item used" note for the HUD (icon pop).
+function ItemService.feedback(p, id: string)
+	local def = Items.Defs[id]
+	local root = Participants.root(p)
+	if root then
+		local pe = Instance.new("ParticleEmitter")
+		pe.Name = "ItemFx"
+		pe.Color = ColorSequence.new(Build.color(def.color))
+		pe.LightEmission = 0.9
+		pe.Rate = 0
+		pe.Lifetime = NumberRange.new(0.4, 0.9)
+		pe.Speed = NumberRange.new(3, 7)
+		pe.SpreadAngle = Vector2.new(180, 180)
+		pe.Size = NumberSequence.new(0.4, 0)
+		pe.Parent = root
+		pcall(function()
+			pe:Emit(if id == "SpringBoots" then 40 else 24)
+		end)
+		task.delay(1.5, function()
+			pe:Destroy()
+		end)
+		if id == "SpringBoots" then
+			local sp = Instance.new("Sparkles")
+			sp.Name = "BootSparkles"
+			sp.SparkleColor = Build.color("Spring")
+			sp.Parent = root
+			task.delay(Items.Boots.seconds, function()
+				sp:Destroy()
+			end)
+		end
+	end
+	if p.player then
+		Net.send(p.player, { kind = "used", item = id })
+		if def.sfx then
+			Net.sfx(p.player, def.sfx)
+		end
+	end
+end
+
+-- The selected item is held in the right hand (everyone can see it; any guest-looking player
+-- may hold any item, so it never reveals a Phantom). id = nil clears it.
+function ItemService.hold(p, id: any): boolean
+	local m = p.model
+	if not m then
+		return false
+	end
+	local old = m:FindFirstChild("HeldItem")
+	if old then
+		old:Destroy()
+	end
+	if type(id) ~= "string" or not Items.Defs[id] or (p.inv[id] or 0) <= 0 or p.state ~= "Guest" then
+		p.held = nil
+		Participants.set(p, "Held", nil)
+		return false
+	end
+	local hand = (m:FindFirstChild("RightHand") or m:FindFirstChild("Right Arm")) :: BasePart?
+	local model = ItemModels.build(Items.Defs[id].model or "cell")
+	if not hand or not model then
+		return false
+	end
+	model.Name = "HeldItem"
+	local grip = if hand.Name == "RightHand" then CFrame.new(0, -0.35, -0.35) else CFrame.new(0, -1.1, -0.3)
+	model:PivotTo(hand.CFrame * grip)
+	local w = Instance.new("WeldConstraint")
+	w.Part0 = hand
+	w.Part1 = model.PrimaryPart
+	w.Parent = model.PrimaryPart
+	model.Parent = m
+	p.held = id
+	Participants.set(p, "Held", id)
+	return true
 end
 
 function ItemService.decoys()

@@ -4,6 +4,7 @@
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Gadgets = require(Shared.Config.Gadgets)
 local Lantern = require(Shared.Logic.Lantern)
+local Style = require(Shared.Config.Style)
 local Loot = require(Shared.Logic.Loot)
 local Build = require(script.Parent.Build)
 local Participants = require(script.Parent.Participants)
@@ -48,8 +49,19 @@ local function rig(p)
 		beam.Segments = 2
 		beam.Enabled = false
 		beam.Parent = origin
-		local lamp = Build.part({ name = "LanternLamp", parent = p.model, size = Vector3.new(0.7, 0.9, 0.7), cf = root.CFrame * CFrame.new(0.9, 0.2, -0.6), color = "Brass", material = Enum.Material.Metal, anchored = false, collide = false, massless = true, query = false })
+		local skin = p.lanternSkin
+		local lamp = Build.part({ name = "LanternLamp", parent = p.model, size = Vector3.new(0.7, 0.9, 0.7), cf = root.CFrame * CFrame.new(0.9, 0.2, -0.6), color = Build.rgb(Style.Palette[skin and skin.color or "Brass"] or Style.Palette.Brass), material = Enum.Material.Metal, anchored = false, collide = false, massless = true, query = false })
 		Build.weld(root, lamp)
+		if skin and skin.beam and Style.Palette[skin.beam] then
+			local bc = Build.color(skin.beam)
+			light.Color = bc
+			beam.Color = ColorSequence.new(bc)
+		end
+		if p.class == "Illuminator" then
+			local wide = G.halfAngle + Gadgets.Classes.Illuminator.extraHalfAngle
+			light.Angle = wide * 2
+			beam.Width1 = math.tan(math.rad(wide)) * G.range * 1.2
+		end
 		o = origin
 	end
 	return o
@@ -165,7 +177,8 @@ function LanternService.step(dt: number)
 		if not p.lanternOn then
 			continue
 		end
-		local b, on = Lantern.drain(p.battery, dt, true, G)
+		local drainMul = if p.class == "Illuminator" then Gadgets.Classes.Illuminator.drainFactor else 1
+		local b, on = Lantern.drain(p.battery, dt * drainMul, true, G)
 		p.battery = b
 		Participants.set(p, "Battery", math.floor(b * 10) / 10)
 		if not on then
@@ -192,7 +205,8 @@ function LanternService.step(dt: number)
 		for _, ph in phantoms do
 			local pp = Participants.pos(ph)
 			if pp and math.abs(pp.Y - origin.Y) < 9 then -- floors block beams (and the cloud raycast)
-				local inside = Lantern.inCone(origin, dir, pp, G.range, G.halfAngle)
+				local half = G.halfAngle + (if p.class == "Illuminator" then Gadgets.Classes.Illuminator.extraHalfAngle else 0)
+				local inside = Lantern.inCone(origin, dir, pp, G.range, half)
 				if inside and clearLine(origin, pp, ignore) then
 					beams[ph.id] = (beams[ph.id] or 0) + 1
 				end

@@ -22,6 +22,10 @@ local LanternService = require(script.Parent.LanternService)
 local ChaseService = require(script.Parent.ChaseService)
 local ItemService = require(script.Parent.ItemService)
 local LiftService = require(script.Parent.LiftService)
+local ArchiveService = require(script.Parent.ArchiveService)
+local FinaleService = require(script.Parent.FinaleService)
+local AbilityService = require(script.Parent.AbilityService)
+local ManorBuilder = require(script.Parent.ManorBuilder)
 local Clock = require(script.Parent.Clock)
 
 local BotService = {}
@@ -264,7 +268,7 @@ local function view(b)
 		local pos = Participants.pos(q)
 		if pos then
 			if q.role == "Guest" and q.state == "Guest" then
-				table.insert(w.guests, { id = q.id, x = pos.X, y = pos.Y, z = pos.Z })
+				table.insert(w.guests, { id = q.id, x = pos.X, y = pos.Y, z = pos.Z, carrier = q.carryKey ~= nil })
 			elseif q.role == "Phantom" and q.state == "Phantom" then
 				-- guests only "see" Phantoms once they have transformed (night)
 				table.insert(w.phantoms, { id = q.id, x = pos.X, y = pos.Y, z = pos.Z })
@@ -288,6 +292,34 @@ local function view(b)
 			end
 		end
 		w.tampersLeft = (night and night.maxTampers or 1) - grid.tampers
+	end
+	-- v1.0: Night 2 cabinets + projector, Night 3 keys + console
+	w.stage = workspace:GetAttribute("CM_Stage")
+	if w.phase == "Day" and ArchiveService.active() then
+		w.cabinets = {}
+		for _, c in ArchiveService.openCabinets() do
+			table.insert(w.cabinets, { id = c.id, x = c.x, y = c.y + RH, z = c.z, trapped = if b.role == "Phantom" then c.trapped else false })
+		end
+		w.trapsLeft = if b.role == "Phantom" then ArchiveService.state().trapsLeft else 0
+	end
+	local built = ManorBuilder.get()
+	if built and ArchiveService.active() and w.phase == "Night" then
+		local pr = built.props.projector
+		w.projector = { x = pr.x, y = pr.y + RH, z = pr.z + 3 }
+	end
+	if built and FinaleService.active() and w.phase == "Night" then
+		local c = built.props.console
+		w.console = { x = c.x, y = c.y + RH, z = c.z + 3, radius = c.radius }
+		w.keys = {}
+		for _, k in FinaleService.freeKeys() do
+			local claimed = 0
+			for _, o in bots do
+				if o ~= b and o.keyTarget == k.id and o.state == "Guest" then
+					claimed += 1
+				end
+			end
+			table.insert(w.keys, { id = k.id, x = k.x + 2, y = k.y + RH, z = k.z, claimed = claimed })
+		end
 	end
 	local pos = Participants.pos(b)
 	if pos then
@@ -328,8 +360,11 @@ local function think(b)
 	for id, def in Items.Defs do
 		ready[id] = b.itemAt == nil or b.itemAt[id] == nil or now - b.itemAt[id] >= (def.cooldown or 0)
 	end
+	local gk = AbilityService.kind(b)
 	local me = {
 		id = b.id, x = pos.X, y = pos.Y, z = pos.Z, state = b.state, battery = b.battery or 0, inv = b.inv, itemReady = ready,
+		pages = b.pages, carryKey = b.carryKey, class = b.class, gadget = gk, jx = b.jx, jz = b.jz,
+		gadgetReady = gk ~= nil and (b.abilityAt == nil or b.abilityAt[gk] == nil or now - b.abilityAt[gk] >= AbilityService.cooldownOf(gk)),
 		slickReady = Cooldown.ready(b.lastSlick, Gadgets.Wisp.slickCooldown, now),
 		flickerReady = Cooldown.ready(b.lastFlicker, Gadgets.Wisp.flickerCooldown, now),
 	}
@@ -345,10 +380,33 @@ local function think(b)
 		d = BotBrain.guest(me, w, Cfg, Gadgets, night)
 	end
 	b.lastDecision = d.action
+	if d.keyTarget then
+		b.keyTarget = d.keyTarget
+	end
+	-- role gadget (same server entry point as players); turn to face the target first
+	if d.gadget then
+		local root = Participants.root(b)
+		if root and d.faceX then
+			local p0 = root.CFrame.Position
+			local look = Vector3.new(d.faceX - p0.X, 0, d.faceZ - p0.Z)
+			if look.Magnitude > 0.1 then
+				b.model:PivotTo(CFrame.lookAt(p0, p0 + look))
+			end
+			if b.role == "Guest" then
+				LanternService.aimAtPoint(b, Vector3.new(d.faceX, p0.Y, d.faceZ))
+			end
+		end
+		if AbilityService.use(b) then
+			b.gadgetsUsed = (b.gadgetsUsed or 0) + 1
+		end
+	end
 	-- items (same server entry point as players)
 	if d.item then
 		local opts = if d.itemDir then { dir = Vector3.new(d.itemDir.x, 0, d.itemDir.z) } else nil
 		if ItemService.use(b, d.item, opts) then
+			if (b.inv[d.item] or 0) > 0 then
+				ItemService.hold(b, d.item)
+			end
 			b.itemsUsed = b.itemsUsed or {}
 			b.itemsUsed[d.item] = (b.itemsUsed[d.item] or 0) + 1
 		end
@@ -387,6 +445,39 @@ local function think(b)
 			b.dwell = { id = d.id, at = now }
 		elseif now - b.dwell.at >= night.chestOpenSeconds then
 			ChestService.open(b, d.id)
+			b.dwell = nil
+		end
+	elseif a == "search" or a == "trap" then
+		stop(b)
+		local need = if a == "search" then 1.5 else 2
+		if b.dwell == nil or b.dwell.id ~= d.id then
+			b.dwell = { id = d.id, at = now }
+		elseif now - b.dwell.at >= need then
+			if a == "search" then
+				ArchiveService.search(b, d.id)
+			else
+				ArchiveService.trap(b, d.id)
+			end
+			b.dwell = nil
+		end
+	elseif a == "slot" then
+		stop(b)
+		ArchiveService.slot(b)
+	elseif a == "take" then
+		b.keyTarget = d.id
+		stop(b)
+		if b.dwell == nil or b.dwell.id ~= d.id then
+			b.dwell = { id = d.id, at = now }
+		elseif now - b.dwell.at >= 2 then
+			FinaleService.take(b, d.id)
+			b.dwell = nil
+		end
+	elseif a == "insert" then
+		stop(b)
+		if b.dwell == nil or b.dwell.id ~= "insert" then
+			b.dwell = { id = "insert", at = now }
+		elseif now - b.dwell.at >= 1 then
+			FinaleService.insert(b)
 			b.dwell = nil
 		end
 	elseif a == "tamper" then

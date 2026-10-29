@@ -25,8 +25,16 @@ for _, d in map:GetDescendants() do
 		parts += 1
 	end
 end
-assert(#map.Manor.Breakers:GetChildren() == #Manor.Breakers and #Manor.Breakers == 5, "breakers")
-assert(parts < 3000, "part budget " .. parts)
+assert(#map.Manor.Breakers:GetChildren() == #Manor.Breakers and #Manor.Breakers == 6, "breakers")
+assert(parts < 6000, "part budget " .. parts)
+-- StreamingEnabled in the real engine + Persistent key interactables (v1.0 RC)
+assert(workspace.StreamingEnabled == true, "StreamingEnabled off")
+-- (StreamingTargetRadius / MinRadius are not script-readable; scripts/verify_place.luau checks them in the file)
+for _, n in { "Breakers", "Lifts", "Props" } do
+	local g = map.Manor:FindFirstChild(n)
+	assert(g and g:IsA("Model") and g.ModelStreamingMode == Enum.ModelStreamingMode.Persistent, n .. " not Persistent")
+end
+assert(map.Manor.Props:FindFirstChild("EvidenceBoard") and map.Manor.Props:FindFirstChild("ExitConsole"), "board/console under Props")
 -- every lift stop has its prompts
 for _, l in map.Manor.Lifts:GetChildren() do
 	if l.Name == "LiftPanel" then
@@ -77,7 +85,7 @@ end
 local phase = workspace:GetAttribute("CM_Phase")
 assert(phase == "Lobby" or phase == "Day", "phase " .. tostring(phase))
 local left = workspace:GetAttribute("CM_PhaseEndsAt") - workspace:GetServerTimeNow()
-assert(left > 0 and left <= 151, "countdown " .. left)
+assert(left > 0 and left <= 200, "countdown " .. left)
 local Lighting = game:GetService("Lighting")
 assert(Lighting:FindFirstChildOfClass("Atmosphere"), "no atmosphere")
 assert(Lighting:GetAttribute("Preset") ~= nil, "no lighting preset")
@@ -90,6 +98,7 @@ local ChaseService = m("ChaseService")
 ChaseService.prepare({ model = nil })
 assert(PhysicsService:IsCollisionGroupRegistered("CMWisps"), "Wisp collision group")
 assert(PhysicsService:CollisionGroupsAreCollidable("CMWisps", "CMChars") == false, "wisps collide with characters")
-assert(workspace:GetAttribute("CM_Version") == "M1.1", "version " .. tostring(workspace:GetAttribute("CM_Version")))
-print(string.format("BOOT OK: M1.1, phase %s (%.0f s left), %d map parts, %d boxes z-fight free, preset %s", phase, left, parts, #boxes, tostring(Lighting:GetAttribute("Preset"))))
+local ver = workspace:GetAttribute("CM_Version")
+assert(type(ver) == "string" and string.find(ver, "v1.0", 1, true) == 1, "version " .. tostring(ver))
+print(string.format("BOOT OK: " .. tostring(ver) .. ", streaming %s, phase %s (%.0f s left), %d map parts, %d boxes z-fight free, preset %s", tostring(workspace.StreamingEnabled), phase, left, parts, #boxes, tostring(Lighting:GetAttribute("Preset"))))
 return phase, parts

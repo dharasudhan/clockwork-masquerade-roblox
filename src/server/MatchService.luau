@@ -90,7 +90,18 @@ end
 
 local function place(p, i: number, n: number)
 	if p.model then
-		p.model:PivotTo(spawnPoint(i, n))
+		local cf = spawnPoint(i, n)
+		if p.player then
+			-- StreamingEnabled: ask the client to load the ballroom before the teleport lands
+			-- (the place uses PauseOutsideLoadedArea, so nobody falls through an unloaded floor)
+			local plr, pos = p.player, cf.Position
+			task.spawn(function()
+				pcall(function()
+					(plr :: any):RequestStreamAroundAsync(pos, 2)
+				end)
+			end)
+		end
+		p.model:PivotTo(cf)
 	end
 end
 

@@ -4,8 +4,9 @@
 -- hotbar with big item icons + slot numbers + the selected item's one-line tip, an "?" items
 -- panel button, the guide card (tutorial / hints), the lantern battery, up to 3 context buttons
 -- with button-glyph hints (touch: left of the jump button; gamepad/keyboard: glyph hints), the
--- minimap + compass, the lobby menu (Shop / Class / Settings), and the modal cards (kid-friendly
--- role card, item card, night/dawn banner, ink splash, results). Rects come from Logic/HudLayout.
+-- minimap + compass, the lobby menu (Shop / Class / Quests / Settings), and the modal cards
+-- (kid-friendly role card, item card, night/dawn banner, ink splash, results). Rects come from
+-- Logic/HudLayout.
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
@@ -272,7 +273,7 @@ function Hud.build(playerGui: Instance)
 	gs.Font = Enum.Font.GothamMedium
 	el.Guide.Visible = false
 	-- lobby menu
-	for n, txt in { MenuShop = "🛒 SHOP", MenuClass = "🔧 CLASS", MenuSettings = "⚙ SETTINGS" } do
+	for n, txt in { MenuShop = "🛒 SHOP", MenuClass = "🔧 CLASS", MenuQuests = "📜 QUESTS", MenuSettings = "⚙ SETTINGS" } do
 		local b = textButton(n, txt, if n == "MenuShop" then "Copper" else "TealDeep")
 		b.Visible = false
 		b.Activated:Connect(function()
@@ -762,7 +763,7 @@ function Hud.update()
 	end
 	-- lobby menu
 	local lobby = phase == "Lobby" or (phase ~= "Day" and phase ~= "Night" and who == nil)
-	for _, n in { "MenuShop", "MenuClass", "MenuSettings" } do
+	for _, n in { "MenuShop", "MenuClass", "MenuQuests", "MenuSettings" } do
 		el[n].Visible = lobby
 	end
 	el.SettingsMini.Visible = not lobby

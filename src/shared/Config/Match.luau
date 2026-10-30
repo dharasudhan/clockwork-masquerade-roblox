@@ -1,7 +1,7 @@
 -- Match flow (pure data). Lobby -> Night 1 (Day, Night) -> Dawn -> Night 2 -> Dawn -> Night 3
 -- (Day, Showdown, Overdrive) -> Results -> Lobby, forever. See Config/Nights.
 return {
-	Version = "v1.4", -- build label (workspace attribute CM_Version)
+	Version = "v1.4.1", -- build label (workspace attribute CM_Version)
 	LobbySeconds = 30,
 	ResultsSeconds = 12,
 	DawnSeconds = 8, -- interlude between nights (night result, Wisps wake up)

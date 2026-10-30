@@ -58,6 +58,10 @@ return {
 		Blueprint = { 22, 58, 120 },
 		Silver = { 180, 186, 196 },
 		Coal = { 26, 24, 24 },
+		-- v1.4.1 night shroud: every Phantom wears the same tattered cloak + clockwork eyes
+		Shroud = { 24, 20, 30 },
+		ShroudEdge = { 46, 36, 52 },
+		ClockEye = { 255, 178, 60 },
 		Steel = { 96, 104, 112 },
 		Cream2 = { 248, 240, 220 },
 		Crimson = { 200, 40, 52 },

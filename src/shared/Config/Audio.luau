@@ -43,6 +43,8 @@ return {
 		Alarm = cue(1846269128, "Gong", 0.6, { maxSeconds = 3 }),
 		Expose = cue(1837718092, "Thermals (sting)", 0.6),
 		Overdrive = cue(1845411462, "Hollow Gong", 0.6, { maxSeconds = 6 }),
+		-- v1.4.1 Dawn Scatter clock strike (re-use of the verified gong)
+		ClockStrike = cue(1846269128, "Gong", 0.6, { maxSeconds = 2 }),
 	},
 	MusicFadeSeconds = 1.2,
 }

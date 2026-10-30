@@ -11,6 +11,10 @@
 -- system (QuestService.onMatchEnd).
 -- v1.2 (engagement pass): beginDay publishes the Rising Storm escalation attributes and the
 -- EventService scheduler steps with the match.
+-- v1.4.1: Phantoms wear a uniform night shroud (ShroudService). Dawn Scatter: 2 s before each
+-- dawn interlude ends the clock strikes - every client fades to black (+ chime), and while the
+-- screen is black the Phantoms' shroud comes off and EVERY participant is moved to a random safe
+-- spot in a different room on a spread of floors (Logic/Scatter), then the screen fades back in.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
@@ -26,11 +30,13 @@ local Roles = require(Shared.Logic.Roles)
 local Outcome = require(Shared.Logic.Outcome)
 local Rewards = require(Shared.Logic.Rewards)
 local Escalation = require(Shared.Logic.Escalation)
+local Scatter = require(Shared.Logic.Scatter)
 local Participants = require(script.Parent.Participants)
 local ChestService = require(script.Parent.ChestService)
 local GridService = require(script.Parent.GridService)
 local LanternService = require(script.Parent.LanternService)
 local ChaseService = require(script.Parent.ChaseService)
+local ShroudService = require(script.Parent.ShroudService)
 local LightingService = require(script.Parent.LightingService)
 local BotService = require(script.Parent.BotService)
 local ItemService = require(script.Parent.ItemService)
@@ -158,6 +164,83 @@ local function isLast(): boolean
 	return state.orderIdx >= #Match.NightOrder
 end
 
+-- ---- v1.4.1 Dawn Scatter ---------------------------------------------------------------------
+local scatterCands = nil
+local scatterEnabled = true
+-- tests only: compare balance with / without the scatter (positions untouched when off)
+function MatchService.setScatterEnabled(on: boolean)
+	scatterEnabled = on
+end
+function MatchService.setScatterLevels(levels: { number }?)
+	scatterCands = Scatter.candidates(Manor, ManorLayout, levels)
+end
+local function planScatter()
+	scatterCands = scatterCands or Scatter.candidates(Manor, ManorLayout)
+	local people = {}
+	for _, p in Participants.all() do
+		local pos = Participants.pos(p)
+		table.insert(people, { id = p.id, room = pos and ManorLayout.roomAt(Manor, pos.X, pos.Y, pos.Z) })
+	end
+	local plan = Scatter.assign(scatterCands, people, rng:NextInteger(1, 1073741823))
+	-- StreamingEnabled: ask every client to load its landing spot before the teleport lands
+	for _, p in Participants.all() do
+		local a = plan[p.id]
+		if a and p.player then
+			local plr, pos = p.player, Vector3.new(a.x, a.y + ManorLayout.RootHeight, a.z)
+			task.spawn(function()
+				pcall(function()
+					(plr :: any):RequestStreamAroundAsync(pos, 1)
+				end)
+			end)
+		end
+	end
+	return plan
+end
+
+-- the clock strikes: every screen fades to black, landing spots are chosen and pre-streamed
+local function clockStrike()
+	if state.struck then
+		return
+	end
+	local T = Scatter.Timing
+	local now = Clock.now()
+	state.struck = true
+	state.strikeAt = now
+	state.swapAt = now + T.SwapAt
+	state.scatterPlan = planScatter()
+	workspace:SetAttribute("CM_BlackoutAt", now)
+	workspace:SetAttribute("CM_BlackoutUntil", now + T.Total)
+	Net.sendAll({ kind = "blackout", total = T.Total, fadeIn = T.FadeIn, fadeOut = T.FadeOut })
+	Net.sfx("all", "ClockStrike")
+end
+
+-- while black: shroud off / disguises on / Wisps wake (ChaseService.dawn), everyone scattered
+local function dawnSwap()
+	if state.swapped then
+		return
+	end
+	state.swapped = true
+	ChaseService.dawn()
+	local plan = if scatterEnabled then (state.scatterPlan or planScatter()) else {}
+	state.scatterPlan = nil
+	local moved = 0
+	for _, p in Participants.all() do
+		local a = plan[p.id]
+		if a and p.model and Participants.root(p) then
+			p.model:PivotTo(CFrame.new(a.x, a.y + ManorLayout.RootHeight, a.z))
+			if p.isBot then
+				BotService.relocated(p)
+			end
+			moved += 1
+		end
+	end
+	workspace:SetAttribute("CM_ScatterAt", Clock.now())
+	workspace:SetAttribute("CM_ScatterMoved", moved)
+end
+MatchService._scatterState = function()
+	return { struck = state.struck == true, swapped = state.swapped == true, strikeAt = state.strikeAt, swapAt = state.swapAt }
+end
+
 -- Day of night number `orderIdx` (1..#NightOrder)
 local function beginDay(orderIdx: number)
 	state.orderIdx = orderIdx
@@ -165,7 +248,10 @@ local function beginDay(orderIdx: number)
 	state.night = Nights[state.nightIdx]
 	local night = state.night
 	if orderIdx > 1 then
-		ChaseService.dawn() -- Wisps wake up as guests, Phantoms re-disguise
+		-- Wisps wake up as guests, Phantoms re-disguise (v1.4.1: inside the clock-strike
+		-- blackout with the scatter; a dawn too short for the strike swaps here)
+		dawnSwap()
+		ChaseService.dawn()
 		ItemService.reset()
 		AbilityService.reset()
 	end
@@ -321,6 +407,7 @@ local function nightOver(result)
 		Net.toast("all", "The manor stayed dark... the Phantoms grow stronger. Tagged guests wake up.", "MaskNeon")
 	end
 	Net.sendAll({ kind = "dawn", winner = result.winner, reason = result.reason, no = state.orderIdx, nightsWon = nightsWon() })
+	state.struck, state.swapped, state.scatterPlan = false, false, nil -- v1.4.1: a fresh clock strike
 	setPhase("Dawn", secs("dawn", Match.DawnSeconds))
 end
 
@@ -342,6 +429,8 @@ local function endRound(result)
 		end
 		GridService.cancel(p)
 	end
+	-- v1.4.1: the match is over (Results reveals every role) - every avatar back to normal
+	ShroudService.clearAll()
 	-- v1.2: escalation dials belong to the match that set them
 	workspace:SetAttribute("CM_EscDrain", nil)
 	workspace:SetAttribute("CM_EscSpeed", nil)
@@ -463,6 +552,13 @@ function MatchService.step(dt: number)
 			startNight()
 		end
 	elseif state.phase == "Dawn" then
+		-- v1.4.1 Dawn Scatter: strike so the fade-in ends as the Day begins; swap while black
+		if not state.struck and now >= state.endsAt - Scatter.Timing.Total then
+			clockStrike()
+		end
+		if state.struck and not state.swapped and now >= state.swapAt then
+			dawnSwap()
+		end
 		if now >= state.endsAt then
 			beginDay(state.orderIdx + 1)
 		end
@@ -571,8 +667,10 @@ local function onCharacter(player: Player, char: Model)
 		char:WaitForChild("HumanoidRootPart", 5)
 		place(p, math.random(1, 10), 10)
 		ShopService.dress(p)
-		ChaseService.reapply(p)
 		LanternService.equip(p)
+		-- v1.4.1: after the lantern, so a night Phantom's lamp skin is shrouded too (and a
+		-- respawned Wisp's lamp is hidden with the rest of the body)
+		ChaseService.reapply(p)
 	end)
 end
 

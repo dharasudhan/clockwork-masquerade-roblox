@@ -1,8 +1,12 @@
--- Match flow (pure data). Lobby -> Night 1 (Day, Night) -> Dawn -> Night 2 -> Dawn -> Night 3
--- (Day, Showdown, Overdrive) -> Results -> Lobby, forever. See Config/Nights.
+-- Match flow (pure data). Lobby -> Intro (the story cinematic at the doors) -> Night 1 (Day, Night)
+-- -> Dawn -> Night 2 -> Dawn -> Night 3 (Day, Showdown, Overdrive) -> Results -> Lobby, forever.
+-- See Config/Nights.
 return {
-	Version = "v1.5.1", -- build label (workspace attribute CM_Version)
+	Version = "v1.6.3", -- build label (workspace attribute CM_Version)
 	LobbySeconds = 30,
+	-- v1.5.2: the skippable story intro plays between the lobby and Day 1. The client intro shots
+	-- run ~39 s; the phase is a hard cap so a stuck client never holds the match hostage.
+	IntroSeconds = 45,
 	ResultsSeconds = 12,
 	DawnSeconds = 8, -- interlude between nights (night result, Wisps wake up)
 	MinPlayers = 6, -- bots fill up to this many participants

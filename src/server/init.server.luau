@@ -9,6 +9,7 @@ Players.CharacterAutoLoads = true
 m("ManorBuilder").build()
 m("LightingService").apply("Lobby")
 m("DataService").init()
+m("FameService").init() -- v1.6.1: Hall of Fame board (needs the lobby built, DataService up)
 local MatchService = m("MatchService")
 MatchService.init()
 MatchService.start()

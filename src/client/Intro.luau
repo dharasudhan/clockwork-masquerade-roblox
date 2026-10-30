@@ -29,6 +29,10 @@ Intro.Shots = {
 		line = "Everyone wears a mask... but some guests are PHANTOMS in disguise!" },
 	{ from = Vector3.new(0, 32, 26), to = Vector3.new(0, 26, -8), look = Vector3.new(0, 2, -4), seconds = 5, speaker = "Sterling",
 		line = "At night they break my power. Fix the RED breakers to bring back the light!" },
+	-- v1.2: witness tells - the sound of a dying breaker IS evidence (ExposeService.tampered,
+	-- 16-stud radius). Camera reuses shot 3's known-good path in reverse (pull back, not push in).
+	{ from = Vector3.new(4, 10, 42), to = Vector3.new(-24, 13, 56), look = Vector3.new(-10, 5, 30), seconds = 5, speaker = "Bellows",
+		line = "If you HEAR a breaker die nearby, someone is close! Remember where you stood." },
 	{ from = Vector3.new(6, -7, 22), to = Vector3.new(32, -8, -8), look = Vector3.new(20, -16, 2), seconds = 4.5, speaker = "Sterling",
 		line = "Breakers hide everywhere: down in the boiler level..." },
 	{ from = Vector3.new(16, 74, -28), to = Vector3.new(34, 70, -34), look = Vector3.new(27, 62, -57), seconds = 4.5, speaker = "Sterling",

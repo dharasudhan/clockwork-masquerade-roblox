@@ -251,13 +251,13 @@ Notify.OnClientEvent:Connect(function(payload)
 		State.toast = { text = "Unlocked: " .. tostring(payload.name) .. "!", color = "TealNeon", at = os.clock() }
 		if State.panel == "Shop" then
 			Menus.open("Shop")
-		elseif k == "quest" then
-			-- a daily/weekly quest just completed (QuestService.onMatchEnd)
-			State.toast = { text = string.format("✔ %s  +%d ⚙", tostring(payload.text), tonumber(payload.tokens) or 0), color = "TealNeon", at = os.clock() }
-		elseif k == "seasonTier" then
-			-- season tier up (DataService.award): the cosmetic unlocks via Progression.owns
-			Hud.banner(string.format("❄️ SEASON TIER %d!", tonumber(payload.tier) or 0), "Reward unlocked - check the Quests panel!", "Gold", 4)
 		end
+	elseif k == "quest" then
+		-- a daily/weekly quest just completed (QuestService.onMatchEnd)
+		State.toast = { text = string.format("✔ %s  +%d ⚙", tostring(payload.text), tonumber(payload.tokens) or 0), color = "TealNeon", at = os.clock() }
+	elseif k == "seasonTier" then
+		-- season tier up (DataService.award): the cosmetic unlocks via Progression.owns
+		Hud.banner(string.format("❄️ SEASON TIER %d!", tonumber(payload.tier) or 0), "Reward unlocked - check the Quests panel!", "Gold", 4)
 	end
 end)
 
@@ -305,7 +305,7 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	if uiAccum >= 0.1 then
 		uiAccum = 0
-		Hud.update()
+		Hudeupdate = nil
 		Guide.update()
 		syncHeld()
 	end
@@ -314,3 +314,4 @@ RunService.Heartbeat:Connect(function(dt)
 		PromptFilter.refresh()
 	end
 end)
+send("whoami")

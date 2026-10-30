@@ -1,9 +1,14 @@
 -- Guest lanterns (night only): battery, dry-cell recharge, aim from the client camera (rate
 -- limited, sanitised, falls back to the body's facing when stale), the visible beam and the
 -- server-side cone + line-of-sight test that slows Phantoms (Logic/Lantern; stacking, capped).
+-- v1.2 (engagement pass): the drain multiplier also carries Rising Storm night escalation
+-- (CM_EscDrain), manor-event surges (CM_EventDrain) and the Last Stand bonus for the final
+-- surviving guests (Logic/Escalation against CM_GuestsAlive).
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Gadgets = require(Shared.Config.Gadgets)
+local EscCfg = require(Shared.Config.Escalation)
 local Lantern = require(Shared.Logic.Lantern)
+local Escalation = require(Shared.Logic.Escalation)
 local Style = require(Shared.Config.Style)
 local Loot = require(Shared.Logic.Loot)
 local Build = require(script.Parent.Build)
@@ -149,6 +154,16 @@ local function clearLine(from: Vector3, to: Vector3, ignore: { Instance }): bool
 	return not ok or hit == nil
 end
 
+-- v1.2: everything that scales lantern drain stacks here: class, night escalation, the active
+-- manor event, and the Last Stand edge for the final survivors.
+local function drainFactorFor(p): number
+	local mul = if p.class == "Illuminator" then Gadgets.Classes.Illuminator.drainFactor else 1
+	mul *= workspace:GetAttribute("CM_EscDrain") or 1
+	mul *= workspace:GetAttribute("CM_EventDrain") or 1
+	mul *= Escalation.lastStandDrain(EscCfg, workspace:GetAttribute("CM_GuestsAlive"))
+	return mul
+end
+
 function LanternService.step(dt: number)
 	table.clear(beams)
 	local now = Clock.now()
@@ -177,7 +192,7 @@ function LanternService.step(dt: number)
 		if not p.lanternOn then
 			continue
 		end
-		local drainMul = if p.class == "Illuminator" then Gadgets.Classes.Illuminator.drainFactor else 1
+		local drainMul = drainFactorFor(p)
 		local b, on = Lantern.drain(p.battery, dt * drainMul, true, G)
 		p.battery = b
 		Participants.set(p, "Battery", math.floor(b * 10) / 10)

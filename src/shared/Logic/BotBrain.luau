@@ -11,6 +11,8 @@
 -- me.pages, me.carryKey, me.class, me.gadget (kind or nil) + me.gadgetReady; decisions may set
 -- gadget = true (+ faceX/faceZ to turn first), and actions "search" / "trap" / "slot" / "take" /
 -- "insert" (ids: cabinet / key).
+-- v1.1 adds: BotBrain.suspicious - observable "innocent bystander" behaviour for bot Phantoms
+-- that have no sabotage work left in the Day, so human guests get readable Expose clues.
 -- Distances are level-aware: flat distance + cfg.FloorCost per stud of height difference (a
 -- guest one floor up is "far" even when it is right overhead).
 local BotBrain = {}
@@ -124,6 +126,51 @@ local function dayItems(me, w, out, cfg, target, td)
 	elseif has(me, "PocketWatch") and (w.timeLeft or math.huge) < cfg.WatchDaySeconds then
 		out.item = "PocketWatch"
 	end
+end
+
+-- v1.1: observable "innocent bystander" behaviour for a bot Phantom with no sabotage work left.
+-- Picks one cover act per time window (deterministic, so it is unit-testable and does not
+-- jitter): shadow the nearest guest like a bodyguard, or hover near the busiest breaker
+-- "watching the repairs". To human guests these read as normal guest behaviour until the
+-- ribbon clues say otherwise - and they give real Expose evidence to act on.
+function BotBrain.suspicious(me, w, cfg)
+	local fc = cfg.FloorCost
+	local sus = cfg.Suspicion or {}
+	local out = { action = "idle", lantern = false }
+	local sticky = math.max(1, sus.StickySeconds or 8)
+	local window = math.floor((w.timeLeft or 0) / sticky)
+	local cands = {}
+	local guest = nearest(me, w.guests, function(g)
+		return g.id ~= me.id
+	end, fc)
+	if guest then
+		table.insert(cands, { kind = "trail", t = guest, d = sus.TrailDistance or 11 })
+	end
+	local busy, bn = nil, -1
+	for _, b in w.breakers do
+		local n = count(w.guests, b, sus.HoverRadius or 14, nil, fc)
+		if n > bn then
+			busy, bn = b, n
+		end
+	end
+	if busy then
+		table.insert(cands, { kind = "hover", t = busy, d = sus.StandOff or 7 })
+	end
+	if #cands == 0 then
+		return out
+	end
+	local pick = cands[(window % #cands) + 1]
+	local dd = d3(me, pick.t, fc)
+	if dd > pick.d * 1.25 then
+		moveTo(out, pick.t)
+	elseif pick.kind == "trail" and dd < (sus.TooClose or 6) then
+		-- back off without turning around: sidestep straight away from the guest
+		local dx, dz = me.x - pick.t.x, me.z - pick.t.z
+		local l = math.max(0.01, math.sqrt(dx * dx + dz * dz))
+		out.action = "move"
+		out.x, out.y, out.z = me.x + dx / l * 6, me.y, me.z + dz / l * 6
+	end
+	return out
 end
 
 function BotBrain.guest(me, w, cfg, gadgets, night)
@@ -324,8 +371,10 @@ function BotBrain.phantom(me, w, cfg, gadgets, night)
 			else
 				moveTo(out, chest)
 			end
+			return out
 		end
-		return out
+		-- v1.1: no loot left - put on the innocent-bystander act (readable Expose tells)
+		return BotBrain.suspicious(me, w, cfg)
 	end
 	-- Night: hunt the most isolated reachable guest; a ticking decoy nearby is irresistible
 	local best, bc, bdist = nil, math.huge, math.huge

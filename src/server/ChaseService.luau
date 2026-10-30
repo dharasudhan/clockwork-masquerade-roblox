@@ -2,11 +2,16 @@
 -- cooldown) -> Energy Bubble -> Electro-Wisp (floating drone; flicker room lights cd 20 s,
 -- oil slick cd 30 s max 2 alive; cannot tag), glow-sticks that outline nearby Phantoms, and
 -- every participant's walk speed (lantern slow on Phantoms, slick slow on guests).
+-- v1.2 (engagement pass): Rising Storm Phantom speed bonus (CM_EscSpeed), Last Stand survivor
+-- speed (Logic/Escalation), manor-event speed (CM_EventSpeed), and "grazed" near-miss feedback
+-- when a swipe just misses a guest.
 local PhysicsService = game:GetService("PhysicsService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Gadgets = require(Shared.Config.Gadgets)
 local Manor = require(Shared.Config.Manor)
+local EscCfg = require(Shared.Config.Escalation)
 local Lantern = require(Shared.Logic.Lantern)
+local Escalation = require(Shared.Logic.Escalation)
 local Cooldown = require(Shared.Logic.Cooldown)
 local Loot = require(Shared.Logic.Loot)
 local ManorLayout = require(Shared.Logic.ManorLayout)
@@ -239,6 +244,25 @@ function ChaseService.tryTag(p, targetId: string?): boolean
 		return true
 	end
 	if not best then
+		-- v1.2: near miss - a guest just outside swipe range gets a heartbeat moment
+		-- (rate-limited so a camping Phantom cannot spam it).
+		local near, nd = nil, math.huge
+		for _, g in Participants.guests(true) do
+			local gp = Participants.pos(g)
+			if gp and math.abs(gp.Y - pos.Y) < 6 then
+				local d = flatDist(gp, pos)
+				if d < nd then
+					near, nd = g, d
+				end
+			end
+		end
+		if near and nd <= P.tagRange + 3.5 and now - (p.lastGraze or 0) > 4 then
+			p.lastGraze = now
+			if near.player then
+				Net.sfx(near.player, "Tag")
+				Net.toast(near.player, "A Phantom's claws grazed you - RUN!", "MaskNeon")
+			end
+		end
 		return false
 	end
 	p.lastTag = now
@@ -404,6 +428,11 @@ end
 function ChaseService.step(dt: number)
 	local now = Clock.now()
 	local night = workspace:GetAttribute("CM_Phase") == "Night"
+	-- v1.2: Rising Storm Phantom speed + Last Stand survivor count, read once per tick
+	local escSpeed = workspace:GetAttribute("CM_EscSpeed") or 0
+	local aliveGuests = workspace:GetAttribute("CM_GuestsAlive") or 99
+	local lastStandSpeed = Escalation.lastStandSpeed(EscCfg, aliveGuests)
+	local eventSpeed = workspace:GetAttribute("CM_EventSpeed") or 1
 	-- expire slicks / glow-sticks
 	for i = #slicks, 1, -1 do
 		if now >= slicks[i].untilT then
@@ -456,7 +485,7 @@ function ChaseService.step(dt: number)
 				local recoil = if p.lastTag and now - p.lastTag < P.recoilSeconds then P.recoilFactor else 1
 				local held = now < (p.frozenUntil or 0) or now < (p.stunUntil or 0)
 				local mul = if hooks.phantomSpeed then hooks.phantomSpeed() else 1
-				setSpeed(p, if p.transformed and not held then P.nightSpeed * mul * Lantern.speedFactor(beams, Gadgets.Lantern) * recoil else 0)
+				setSpeed(p, if p.transformed and not held then (P.nightSpeed + escSpeed) * mul * Lantern.speedFactor(beams, Gadgets.Lantern) * recoil else 0)
 				-- the projector's light barrier (Night 2) pushes Phantoms out
 				local bar = hooks.barrier and hooks.barrier()
 				if bar and pos and math.abs(pos.Y - (bar.y + 3)) < 7 then
@@ -488,7 +517,7 @@ function ChaseService.step(dt: number)
 			local boost = if now < (p.boostUntil or 0) then Items.Boots.factor else 1
 			local shaken = if now < (p.shakenUntil or 0) then Match.Expose.shakenFactor else 1
 			local carry = if hooks.carryFactor then hooks.carryFactor(p) else 1
-			setSpeed(p, Gadgets.Guest.walkSpeed * (if slowed then W.slickSlow else 1) * boost * shaken * carry)
+			setSpeed(p, (Gadgets.Guest.walkSpeed + lastStandSpeed) * eventSpeed * (if slowed then W.slickSlow else 1) * boost * shaken * carry)
 		end
 	end
 end

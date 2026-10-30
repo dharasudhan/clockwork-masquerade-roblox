@@ -4,6 +4,8 @@
 --             (placeholder) Robux items that say "Coming soon" until their ids exist
 --   Class     Mechanist / Illuminator cards
 --   Settings  Music, Sound effects, Hints toggles + "Replay story intro" + "Replay tutorial"
+--   Quests    daily + weekly objectives with live progress and Gear Token payouts, plus the
+--             season track (tier, XP bar, premium flag, tier rewards); lobby button + Settings
 --   Vote      Expose vote at the Evidence Board: everyone in the match with their ribbon colour,
 --             vote counts and the clues found today
 --   Items     what each carried item does (icon, name, count, one-line tip)
@@ -17,6 +19,8 @@ local Monetization = require(Shared.Config.Monetization)
 local Gadgets = require(Shared.Config.Gadgets)
 local Items = require(Shared.Config.Items)
 local Match = require(Shared.Config.Match)
+local QuestsCfg = require(Shared.Config.Quests)
+local SeasonCfg = require(Shared.Config.Season)
 local Hud = require(script.Parent.Hud)
 local State = require(script.Parent.State)
 local Input = require(script.Parent.Input)
@@ -310,6 +314,144 @@ function builders.Settings()
 	button("OpenShop", "🛒 Shop", "Copper", g, function()
 		Menus.open("Shop")
 	end).LayoutOrder = 6
+	button("OpenQuests", "📜 Quests & Season", "Copper", g, function()
+		Menus.open("Quests")
+	end).LayoutOrder = 7
+end
+
+-- quest/season mirror (server -> player attributes, see DataService.publish):
+--   QuestDaily / QuestWeekly = "id:progress/goal:done|..." (Logic/Quests.summary)
+--   Season = "id:tier:premium" (id "" = no active season), SeasonXP = total season XP
+local QuestDef = {}
+for _, q in QuestsCfg.DailyPool do
+	QuestDef[q.id] = q
+end
+for _, q in QuestsCfg.WeeklyPool do
+	QuestDef[q.id] = q
+end
+
+local function questRows(attr: string): { any }
+	local out = {}
+	for _, part in string.split(me():GetAttribute(attr) or "", "|") do
+		local id, prog, goal, done = string.match(part, "^(.-):(%d+)/(%d+):(%d)$")
+		if id then
+			table.insert(out, { id = id, progress = tonumber(prog) or 0, goal = tonumber(goal) or 1, done = done == "1" })
+		end
+	end
+	return out
+end
+
+local function seasonRewardLine(): string
+	local bits = {}
+	for _, kind in { "Mask", "Lantern", "Trail", "Emote" } do
+		for _, c in Cosmetics.ofKind(kind) do
+			if c.seasonTier then
+				table.insert(bits, string.format("T%d %s %s", c.seasonTier, c.icon or "◆", string.gsub(c.name, "%s%(.*%)$", "")))
+			end
+		end
+	end
+	table.sort(bits)
+	return table.concat(bits, "   ")
+end
+
+function builders.Quests()
+	title.Text = string.format("QUESTS   ⚙ %d Gear Tokens", me():GetAttribute("GearTokens") or 0)
+	-- season block (fixed at the top): state, XP bar, tier rewards
+	local season = Instance.new("Frame")
+	season.Name = "Season"
+	season.BackgroundTransparency = 1
+	season.Size = UDim2.fromScale(1, 0.3)
+	season.ZIndex = 12
+	season.Parent = content
+	local sname = Hud.label("SeasonName", season, "")
+	sname.Size = UDim2.fromScale(1, 0.3)
+	sname.TextXAlignment = Enum.TextXAlignment.Left
+	sname.TextColor3 = rgb("Brass")
+	local xpBar = Hud.panel("SeasonXP", "Iron", 0.2, season)
+	xpBar.Size = UDim2.fromScale(1, 0.22)
+	xpBar.Position = UDim2.fromScale(0, 0.34)
+	local st = Instance.new("UIStroke")
+	st.Color = rgb("Brass")
+	st.Thickness = 1
+	st.Parent = xpBar
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.BackgroundColor3 = rgb("Gold")
+	fill.BorderSizePixel = 0
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.Parent = xpBar
+	local xpText = Hud.label("Text", xpBar, "")
+	xpText.ZIndex = 2
+	xpText.TextStrokeTransparency = 0.5
+	local rewards = Hud.label("Rewards", season, "")
+	rewards.Size = UDim2.fromScale(1, 0.44)
+	rewards.Position = UDim2.fromScale(0, 0.6)
+	rewards.TextYAlignment = Enum.TextYAlignment.Top
+	rewards.TextWrapped = true
+	rewards.TextColor3 = rgb("Amber")
+	local sid, tier, premium = string.match(me():GetAttribute("Season") or "", "^(.-):(%d+):(%d)$")
+	if sid == nil or sid == "" then
+		sname.Text = string.format("❄️ %s — COMING SOON!", SeasonCfg.Name)
+		xpText.Text = "Season 1 starts when the gates open!"
+		fill.Size = UDim2.fromScale(0, 1)
+	else
+		local xp = me():GetAttribute("SeasonXP") or 0
+		local t = math.min(tonumber(tier) or 1, SeasonCfg.TierCount)
+		local crown = if premium == "1" then "  👑 PREMIUM" else ""
+		sname.Text = string.format("❄️ %s — TIER %d/%d%s", SeasonCfg.Name, t, SeasonCfg.TierCount, crown)
+		if t >= SeasonCfg.TierCount then
+			fill.Size = UDim2.fromScale(1, 1)
+			xpText.Text = "MAX TIER!"
+		else
+			local into = xp - (t - 1) * SeasonCfg.XpPerTier
+			fill.Size = UDim2.fromScale(math.clamp(into / SeasonCfg.XpPerTier, 0, 1), 1)
+			xpText.Text = string.format("%d / %d XP to tier %d", into, SeasonCfg.XpPerTier, t + 1)
+		end
+		rewards.Text = "TIER REWARDS: " .. seasonRewardLine()
+	end
+	-- quests (scroll): section headers + one row per quest
+	local area = Instance.new("Frame")
+	area.Name = "Area"
+	area.BackgroundTransparency = 1
+	area.Size = UDim2.fromScale(1, 0.68)
+	area.Position = UDim2.fromScale(0, 0.32)
+	area.ZIndex = 12
+	area.Parent = content
+	local g = grid(area, 1, 46)
+	local order = 0
+	local function section(text: string)
+		order += 1
+		local l = Hud.label("Section" .. order, g, text)
+		l.LayoutOrder = order
+		l.BackgroundTransparency = 0.4
+		l.BackgroundColor3 = rgb("Coal")
+		l.TextColor3 = rgb("Brass")
+		l.ZIndex = 12
+	end
+	local function rows(attr: string)
+		local list = questRows(attr)
+		if #list == 0 then
+			order += 1
+			local l = Hud.label("Empty" .. order, g, "Finish a match to get your quests!")
+			l.LayoutOrder = order
+			l.ZIndex = 12
+		end
+		for _, q in list do
+			order += 1
+			local def = QuestDef[q.id]
+			local text = if def then def.text else q.id
+			local tokens = if def then def.tokens else 0
+			local done = q.done or q.progress >= q.goal
+			local b = button("Quest_" .. q.id, string.format("%s\n%d/%d   ⚙ %d%s", text, math.min(q.progress, q.goal), q.goal, tokens, if done then "  ✔" else ""), if done then "TealNeon" else "TealDeep", g, function()
+			end)
+			b.LayoutOrder = order
+			b.TextXAlignment = Enum.TextXAlignment.Left
+		end
+	end
+	section("📅 TODAY")
+	rows("QuestDaily")
+	section("🗓️ THIS WEEK")
+	rows("QuestWeekly")
 end
 
 -- everyone in the match (players' characters + bots) that can still be voted for

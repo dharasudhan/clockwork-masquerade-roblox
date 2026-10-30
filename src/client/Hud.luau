@@ -152,7 +152,7 @@ local function setGlyph(chip: Frame, action: string?)
 	chip.Visible = text ~= nil
 	if text then
 		local img = chip:FindFirstChild("Image") :: ImageLabel
-		hasImg = type(image) == "string" and image ~= ""
+		local hasImg = type(image) == "string" and image ~= ""
 		img.Visible = hasImg
 		img.Image = if hasImg then image :: string else ""
 		;(chip:FindFirstChild("Text") :: TextLabel).Text = if hasImg then "" else text

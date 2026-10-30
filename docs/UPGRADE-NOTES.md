@@ -1,3 +1,21 @@
+# Clockwork Masquerade — v1.4 session intro (Oct 30, 2026)
+
+- The story intro now plays at the START OF EVERY SESSION (was: first visit only).
+- Still fully skippable on every device: SKIP button, Space / Backspace, gamepad A / B —
+  gamepad focus lands on the SKIP button.
+- `IntroSeen` is still sent to the server (`introDone`) for stats, but it no longer gates
+  the cinematic on the client.
+- The guided first match still follows the intro for anyone who has not finished the
+  tutorial (`TutorialDone` is checked in the intro callback), so returning players who
+  dodged the tutorial in v1.2–v1.3 re-enter the funnel.
+- Why: every session opens with the brand and the story premise; skip is one input on
+  every device, so retention cost is minimal while the manor's identity stays front-and-
+  center (it also re-teaches the witness-tell after updates).
+- One-line revert: in `init.client.luau`, restore the `IntroSeen == false` gate in the
+  `introChecked` block.
+
+---
+
 # Clockwork Masquerade — v1.2 gameplay upgrade (Oct 30, 2026)
 
 The engagement pass: makes matches escalate, gives losing sides a comeback, and turns the social

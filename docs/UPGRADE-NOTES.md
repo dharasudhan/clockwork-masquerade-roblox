@@ -102,16 +102,25 @@ ProfileStore `Reconcile` + `SaveData.sanitize` (new keys appear on first load).
 ### Save template v3 (`Config/DataTemplate`)
 - Adds `Quests`, `Season`, `StarterPackBought`. v2 saves migrate automatically.
 
+### Quest/season client UI (was the one open dev to-do — DONE on this branch)
+- `builders.Quests` in `Menus.luau`: season block (name, tier x/10, XP-to-next bar, 👑 premium
+  tag, tier-reward list from `Config/Cosmetics`) + scrolling daily/weekly quest rows parsed from
+  the `QuestDaily` / `QuestWeekly` attributes (`id:progress/goal:done`), done rows turn
+  TealNeon with a ✔.
+- Lobby 📜 QUESTS button (`Hud.luau` + layout rects in `Logic/HudLayout.luau`, portrait and
+  landscape) and a Settings entry; gamepad-navigable like every other panel.
+- `init.client.luau`: the `quest` Notify payload now toasts "✔ <text> +N ⚙" and `seasonTier`
+  fires a "❄️ SEASON TIER N!" banner pointing at the Quests panel.
+- Studio check: quest rows only refresh when the panel reopens (no live ticker) — fine for a
+  lobby panel; eyeball the season block spacing on a portrait phone.
+
 ## What still needs doing (deliberately NOT code)
 
-1. **Client UI**: quest tab + season track UI in `Menus.luau`. Server already publishes
-   `QuestDaily` / `QuestWeekly` / `Season` / `SeasonXP` / `StarterPackBought` attributes and
-   `quest` / `seasonTier` Notify payloads — the client just renders them.
-2. **Studio-side (your checklist)**: rename the experience off "GhostMansionTest", voice chat OFF,
+1. **Studio-side (your checklist)**: rename the experience off "GhostMansionTest", voice chat OFF,
    age questionnaire, real-capture thumbnails, Max Players 10.
-3. **Gate 4**: create the 4 passes + 9 products in Creator Hub with the draft prices, paste the
+2. **Gate 4**: create the 4 passes + 9 products in Creator Hub with the draft prices, paste the
    real ids into `Monetization.luau`, schedule `Season.StartsAt/EndsAt`.
-4. **Real-device performance test** before any ad spend — unchanged from the v1.0 risk list.
+3. **Real-device performance test** before any ad spend — unchanged from the v1.0 risk list.
 
 ## New tests
 - `tests/specs/Quests.spec.luau` — rotation determinism, apply/complete-once, gains mapping,

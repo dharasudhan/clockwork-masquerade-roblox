@@ -1,4 +1,6 @@
 -- Bots (pure data). Server NPCs that fill a match to Match.MinPlayers. Never saved.
+-- v1.1: Suspicion tunes the "innocent bystander" act bot Phantoms put on during the Day so
+-- human guests get readable Expose clues instead of bots that only loot chests.
 return {
 	Names = {
 		"Ada Gearwright", "Cogsworth", "Penny Sprocket", "Barnaby Brass", "Ivy Voltaire",
@@ -21,6 +23,13 @@ return {
 	SmokeRadius = 9, -- smoke-blink away from a Phantom this close
 	DecoyLure = 45, -- Phantom bots go for a decoy this close ...
 	DecoyBonus = 15, -- ... as if it were this much nearer than a guest
+	Suspicion = {
+		StickySeconds = 8, -- a bot sticks to one cover behaviour per time window (Day 150 s => ~18 windows)
+		TrailDistance = 11, -- shadow a guest at about this distance, like a bodyguard ...
+		TooClose = 6, -- ...back off when closer than this
+		HoverRadius = 14, -- "watch the repairs" near the breaker with the most guests around it
+		StandOff = 7, -- close enough to hover at the breaker
+	},
 	Looks = {
 		{ { 234, 196, 160 }, { 30, 90, 96 }, { 196, 152, 64 }, { 60, 40, 30 } },
 		{ { 200, 150, 110 }, { 120, 26, 46 }, { 184, 108, 56 }, { 40, 40, 48 } },

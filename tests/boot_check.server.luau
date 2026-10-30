@@ -111,6 +111,6 @@ EventService._fire("ClockworkRush")
 assert(workspace:GetAttribute("CM_EventSpeed") ~= nil, "manor event dial")
 EventService._clearMods()
 local ver = workspace:GetAttribute("CM_Version")
-assert(type(ver) == "string" and string.find(ver, "v1.2", 1, true) == 1, "version " .. tostring(ver))
+assert(type(ver) == "string" and string.find(ver, "v1.4", 1, true) == 1, "version " .. tostring(ver))
 print(string.format("BOOT OK: " .. tostring(ver) .. ", streaming %s, phase %s (%.0f s left), %d map parts, %d boxes z-fight free, preset %s", tostring(workspace.StreamingEnabled), phase, left, parts, #boxes, tostring(Lighting:GetAttribute("Preset"))))
 return phase, parts

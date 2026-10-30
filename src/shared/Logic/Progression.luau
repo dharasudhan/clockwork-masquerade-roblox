@@ -58,13 +58,33 @@ function Progression.owns(c, data, passes: { [string]: boolean }?): boolean
 	if c.level and (data.Level or 1) >= c.level then
 		return true
 	end
-	if c.seasonTier and (data.Season and data.Season.Tier or 0) >= c.seasonTier then
+	-- v1.3: premium track items need the season pass; the tier check below still applies
+	if c.seasonPremium and not (data.Season and data.Season.Premium) then
+		return false
+	end
+	if c.seasonTier and (data.Season and data.Season.Tier or 0) >= c.seasonTier
+		and (c.season == nil or (data.Season and data.Season.Id) == c.season) then
 		return true
 	end
 	if c.pass and passes and passes[c.pass] then
 		return true
 	end
 	return false
+end
+
+-- Season track cosmetics reached at `tier` for season `seasonId` (premium-track ones only with
+-- the pass). The server copies these into data.Owned so an earned or paid-for season cosmetic
+-- is kept for good when the next season resets the track (v1.4 review fix).
+function Progression.seasonRewards(items, seasonId: string, tier: number, premium: boolean): { string }
+	local out = {}
+	for _, c in items do
+		if c.seasonTier and c.seasonTier <= tier and (c.season == nil or c.season == seasonId) then
+			if premium or not c.seasonPremium then
+				table.insert(out, c.id)
+			end
+		end
+	end
+	return out
 end
 
 -- Finale ring rate: guests inside, Phantoms inside.

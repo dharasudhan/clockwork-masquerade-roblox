@@ -7,6 +7,8 @@ local QuestsCfg = require(Shared.Config.Quests)
 local Quests = require(Shared.Logic.Quests)
 local Season = require(Shared.Config.Season)
 local SeasonLogic = require(Shared.Logic.Season)
+local Cosmetics = require(Shared.Config.Cosmetics)
+local Progression = require(Shared.Logic.Progression)
 local DataService = require(script.Parent.DataService)
 local Net = require(script.Parent.Net)
 
@@ -92,6 +94,7 @@ function QuestService.ensure(player: Player)
 end
 
 -- Season XP for a finished match (called by DataService.award).
+-- v1.3: the premium pass shortens the grind (never power) via Config/Season.PremiumXpFactor.
 function QuestService.seasonXp(data, xp: number)
 	if not SeasonLogic.active(Season, DataService.today()) then
 		return nil
@@ -106,13 +109,21 @@ function QuestService.seasonXp(data, xp: number)
 		data.Season.XP = 0
 		data.Season.Tier = 1
 	end
+	if data.Season.Premium then
+		-- round, not floor: 100 * 1.15 is 114.999... in floating point (v1.4 review fix)
+		xp = math.floor(xp * (Season.PremiumXpFactor or 1.15) + 0.5)
+	end
 	data.Season.XP += math.max(0, math.floor(xp))
 	local tier = SeasonLogic.tierFor(data.Season.XP, Season)
-	if tier > (data.Season.Tier or 1) then
+	local raised = tier > (data.Season.Tier or 1)
+	if raised then
 		data.Season.Tier = tier
-		return tier
 	end
-	return nil
+	-- v1.4 review fix: earned season cosmetics are kept for good (the next season resets the track)
+	for _, id in Progression.seasonRewards(Cosmetics.Items, data.Season.Id, data.Season.Tier or 1, data.Season.Premium == true) do
+		data.Owned[id] = true
+	end
+	return if raised then tier else nil
 end
 
 -- End of a match: progress quests, pay out, notify. `others` = human players in the match.

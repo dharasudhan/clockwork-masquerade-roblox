@@ -128,6 +128,37 @@ return function(t)
 				end
 			end
 		end)
+		it("v1.6.3: in-match Robux products exist, grants + instantCosmetic resolve, listed in ShopOrder order", function()
+			local Mon = t.load("Config/Monetization")
+			local C = t.load("Config/Cosmetics")
+			local inMatch = Mon.inMatchProducts()
+			expect(#inMatch > 0).to.equal(true)
+			-- order matches ShopOrder
+			local want = {}
+			for _, key in Mon.ShopOrder do
+				local p = Mon.Products[key]
+				if p and p.inMatch then
+					table.insert(want, key)
+				end
+			end
+			expect(#inMatch).to.equal(#want)
+			for i, key in want do
+				expect(inMatch[i]).to.equal(key)
+			end
+			-- every in-match product: grants resolve; instantCosmetic (if any) resolves and is cosmetic-only
+			for _, key in inMatch do
+				local p = Mon.Products[key]
+				expect(p.id).to.equal(0) -- DRAFT until Gate 4
+				local n = #(p.grants or {})
+				expect(n > 0 or p.instantCosmetic ~= nil).to.equal(true)
+				for _, g in p.grants or {} do
+					expect(C.byId(g) ~= nil).to.equal(true)
+				end
+				if p.instantCosmetic then
+					expect(C.byId(p.instantCosmetic) ~= nil).to.equal(true)
+				end
+			end
+		end)
 		it("audio cues have ids, names and volumes", function()
 			local A = t.load("Config/Audio")
 			for _, group in { A.Music, A.Sfx } do

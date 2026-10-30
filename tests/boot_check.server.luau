@@ -83,7 +83,7 @@ for _, b in map.Manor.Breakers:GetChildren() do
 	assert(pp:FindFirstChild("Tamper") and pp:FindFirstChild("Repair"), "breaker prompts " .. b.Name)
 end
 local phase = workspace:GetAttribute("CM_Phase")
-assert(phase == "Lobby" or phase == "Day", "phase " .. tostring(phase))
+assert(phase == "Lobby" or phase == "Intro" or phase == "Day", "phase " .. tostring(phase))
 local left = workspace:GetAttribute("CM_PhaseEndsAt") - workspace:GetServerTimeNow()
 assert(left > 0 and left <= 200, "countdown " .. left)
 local Lighting = game:GetService("Lighting")
@@ -207,7 +207,29 @@ for _, c in ScatterL.candidates(Manor, LayoutR) do
 	end
 end
 assert(#badSpots == 0, "unsafe scatter spots: " .. table.concat(badSpots, "; "))
+-- v1.6: Hall of Fame board, Castle Sterling gatehouse, Grotto Baths pool (no collision, real
+-- floor under the water, scatter spots in the grotto clear of the basin)
+local fame = map.Lobby:FindFirstChild("FameBoard")
+assert(fame and fame:FindFirstChild("Row10", true), "FameBoard rows")
+assert(map.Lobby:FindFirstChild("Gatehouse") and map:FindFirstChild("Facade"):FindFirstChild("Parapet"), "castle geometry")
+local gd = map.Manor.Decor:FindFirstChild("Decor_grotto")
+assert(gd and gd:FindFirstChild("PoolWater"), "grotto pool")
+for _, d in gd:GetDescendants() do
+	if d:IsA("BasePart") then
+		assert(not d.CanCollide, "grotto decor collides " .. d.Name)
+	end
+end
+local pool = Manor.Pools[1]
+assert(workspace:Raycast(Vector3.new(pool.x, -16, pool.z), Vector3.new(0, -8, 0), rpDown), "no floor under the pool")
+local grottoSpots = 0
+for _, c in ScatterL.candidates(Manor, LayoutR) do
+	if c.id == "grotto" then
+		grottoSpots = #c.spots
+	end
+end
+assert(grottoSpots > 0, "grotto has no scatter spot")
+assert(type(require(SharedR.Logic.Score).encode) == "function", "Score logic")
 local ver = workspace:GetAttribute("CM_Version")
-assert(type(ver) == "string" and string.find(ver, "v1.4.1", 1, true) == 1, "version " .. tostring(ver))
-print(string.format("BOOT OK: " .. tostring(ver) .. ", shroud R15+R6 on/off OK, " .. spots .. " scatter spots safe, streaming %s, phase %s (%.0f s left), %d map parts, %d boxes z-fight free, preset %s", tostring(workspace.StreamingEnabled), phase, left, parts, #boxes, tostring(Lighting:GetAttribute("Preset"))))
+assert(type(ver) == "string" and string.find(ver, "v1.6", 1, true) == 1, "version " .. tostring(ver))
+print(string.format("BOOT OK: " .. tostring(ver) .. ", fame board + gatehouse + grotto pool OK (" .. grottoSpots .. " grotto scatter spots), shroud R15+R6 on/off OK, " .. spots .. " scatter spots safe, streaming %s, phase %s (%.0f s left), %d map parts, %d boxes z-fight free, preset %s", tostring(workspace.StreamingEnabled), phase, left, parts, #boxes, tostring(Lighting:GetAttribute("Preset"))))
 return phase, parts

@@ -15,7 +15,7 @@ local BotService = m("BotService")
 local Participants = m("Participants")
 local GridService = m("GridService")
 BotService.setUnstickSeconds(0.4)
-MatchService.setDurations({ lobby = 2, day = 25, night = 30, dawn = 2, showdown = 30, overdrive = 10, results = 3 })
+MatchService.setDurations({ lobby = 2, intro = 2, day = 25, night = 30, dawn = 2, showdown = 30, overdrive = 10, results = 3 })
 if workspace:GetAttribute("CM_Phase") == nil then
 	m("ManorBuilder").build()
 	m("LightingService").apply("Lobby")
@@ -33,6 +33,14 @@ end
 assert(waitFor("Day", 10), "no Day")
 assert(BotService.count() == 6, "bots " .. BotService.count())
 assert(#Participants.phantoms() == 1, "phantoms")
+-- v1.6.1 scoreboard published in the real engine (6 entries, role-safe, no repairs mid-match)
+task.wait(1.5)
+local ScoreL = require(game:GetService("ReplicatedStorage").Shared.Logic.Score)
+local sc = ScoreL.decode(workspace:GetAttribute("CM_Score"))
+assert(#sc == 6, "scoreboard entries " .. #sc)
+for _, e in sc do
+	assert(e.repairs == 0 and (e.state == "In play" or e.state == "Wisp"), "scoreboard not role-safe")
+end
 local rigOk = 0
 for _, b in BotService.list() do
 	if b.model:FindFirstChildOfClass("Humanoid") and b.model:FindFirstChild("HumanoidRootPart") then

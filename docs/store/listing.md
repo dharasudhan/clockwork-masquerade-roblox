@@ -1,76 +1,86 @@
-# Store listing kit — The Clockwork Masquerade (DRAFT, Oct 29 2026)
+# Store listing kit — The Clockwork Masquerade (DRAFT, v1.6.3, Oct 30 2026)
 
 Everything here is a draft for Murali. Nothing has been entered on Roblox. The experience stays **Private** until
-Murali explicitly approves going public (Gate 6).
+Murali explicitly approves going public (Gate 6). Build on the private place: **v1.6.3, place version 23**.
 
-## Title
-**The Clockwork Masquerade: Mystery at Sterling Manor**
-(Shorter fallback if the full title gets cut on phone tiles: **Clockwork Masquerade** — use the full title in the
-Creator Hub name field; Roblox shows ~30 characters on discovery tiles.)
+## Game name (v1.6)
+Since v1.5.1 the game is set in **Sterling Castle** (not Sterling Manor): the title board reads "Mystery at Sterling
+Castle", Bellows opens the intro with "Welcome to Sterling Castle!", and the terrace gatehouse sign says "CASTLE
+STERLING". (Both word orders appear in-game on purpose: "Sterling Castle" as the name, "Castle Sterling" on the
+gate sign and the doors banner. Use **Sterling Castle** everywhere in the store.) Code ids and comments still say
+"manor"; players never see those.
 
-## Short description (first lines shown on the game page; ~160 chars)
-Find the masked saboteur! Repair Sterling Manor's grid by day, survive the Phantoms by night, and vote them out
-before dawn. 6–10 players, 3 nights, 5 floors.
+## Title (48/50 characters)
+**Clockwork Masquerade: Mystery at Sterling Castle**
 
-## Long description
-🎭 **Someone at the masquerade is not who they seem.**
+The full "The Clockwork Masquerade: Mystery at Sterling Castle" is 52 characters, over Roblox's 50, so the leading
+"The" is dropped. Discovery tiles show roughly the first 30 characters ("Clockwork Masquerade: Mystery…"), which still
+reads well.
 
-Inventor Augustus Sterling has thrown the party of the century — and then vanished. His clockwork manor is
-falling dark, and hidden among the guests are **Phantoms**: saboteurs in masks who trip the breakers by day and hunt
-by lantern-light at night.
+## Description (981/1000 characters) — paste exactly
 
-⚙️ **Guests**: search 50+ themed rooms across **5 floors** (Boiler Level, Ground Floor, 1st Floor, the Attic and
-the Tower), loot gadgets, repair breakers together and reboot the manor before the night runs out.
-🎩 **Phantoms**: blend in by day, sabotage the grid, then hunt guests in the dark. Tagged guests become
-**Electro-Wisps** and keep playing.
-🗳️ **Expose**: study the ribbon clues and vote at the Evidence Board. Catch a Phantom and they are frozen and
-revealed for the next night.
-🌙 **3 nights, 3 objectives**: the Breaker Night, the Blueprint Archives and the Dawn Reboot finale with the
-Master Override Keys.
-🔦 9 gadgets (smoke pellets, tripwire bells, spring boots, clockwork decoys…), two classes (**Mechanist** and
-**Illuminator**), daily rewards, levels and badges.
-👗 Earn **Gear Tokens** by playing and unlock masks, lanterns, trails and emotes. **Cosmetics never give an
-advantage.**
+```
+Someone at the masquerade is not who they seem!
 
-Plays on phone, tablet, PC and console (gamepad supported). Bots fill empty seats so a match always starts.
-A family-friendly mystery — no blood, no scares, just suspense.
+Professor Sterling's clockwork castle is going dark, and masked Phantoms hide among the guests. By day, explore and open chests for gadgets while the Phantoms secretly tamper with the breakers. By night, fix the power before dawn as the Phantoms hunt. Tagged guests become Electro-Wisps and keep playing.
 
-*Made by Ottran Studios.*
+• 3 nights: Main Breaker Tripped, the Blueprint Archives and the Dawn Reboot finale
+• 5 floors and over 40 rooms, from the Boiler Level and the Grotto Baths to the Tower
+• Vote at the Evidence Board to expose a Phantom
+• 9 gadgets and 2 classes: Mechanist and Illuminator
+• Quests, levels, login rewards and an all-time Hall of Fame
+• Earn Gear Tokens by playing to unlock masks, lanterns, trails and emotes
+
+Optional Robux items are cosmetic only and never change gameplay.
+
+Up to 10 players; bots fill empty seats. Phone, tablet, PC and console.
+
+A family-friendly mystery: no blood, no jump scares.
+
+Made by Ottran Studios.
+```
+
+Accuracy notes (why each line is true today):
+- "3 nights … finale": Config/Nights names. "5 floors and over 40 rooms": 45 named rooms that are not stairs, lifts or
+  balconies (56 map rooms in all), Grotto Baths new in v1.6.2.
+- "9 gadgets": Config/Items (dry cell, glow stick, smoke pellet, spring boots, clockwork decoy, tripwire bell, pocket
+  watch, copper wire, brass wrench).
+- "Hall of Fame": lobby board, top 10 all-time match wins (v1.6.1).
+- "Optional Robux items are cosmetic only": every pass/product grants cosmetics or Gear Tokens (tokens only buy
+  cosmetics); none exists on Roblox yet (all ids 0 = "Coming soon"). If Murali never creates any, this line can stay
+  (it promises nothing) or be removed.
+- "Up to 10 players": **set Max Players to 10 first** (the place is still 8; see the checklist). Bots fill to 6.
+- Badges are not mentioned on purpose: none exists on Roblox yet. Add "and badges" to the quests line once they do.
 
 ## Genre / tags
-- Genre: **Party & Casual** (alt: Roleplay & Avatar Sim → no; best fit is Party & Casual / Social Deduction).
-  Subgenre if offered: **Social Deduction**. Pick the closest of Roblox's current genre list in Creator Hub.
-- Devices: Phone, Tablet, Computer, Console. **VR: turn OFF** (not tested; currently ON in settings).
-- Max players: **10** (place is currently set to 8 → change, see checklist).
+- Genre: **Party & Casual** (subgenre if offered: **Social Deduction**).
+- Devices: Phone, Tablet, Computer, Console. **VR: off** (not tested; still ON in settings).
+- Max players: **10** (place currently **8**).
+
+## Icon — upload `v1.6/icon_512.png` (1024 master: `v1.6/icon_1024.png`)
+Murali's v1.6 icon: brass clockwork masquerade mask with a teal eye, hooded Phantom with amber eyes, castle clock tower
+at night, no text. Use `v1.6/icon_512.png` in Creator Hub (Roblox asks for 512×512); keep `icon_1024.png` as the master.
+The old v1.0 concept `icon_512.png` in this folder is superseded.
+
+## Thumbnails
+1. `thumbnail_1_1920x1080.png` and `thumbnail_2_1920x1080.png` — v1.0 generated key art ("manor" era). Still fine as
+   mood art, but the building now has a castle crown; pair them with real captures.
+2. To capture in-game (Studio, HUD off, Graphics 10): the castle facade + gatehouse at dusk; a night lantern chase in
+   the Royal Library; the Evidence Board vote; the Grotto Baths; the Hall of Fame board.
+Roblox requires thumbnails to represent the actual experience — don't ship generated art alone.
 
 ## Content maturity questionnaire — notes (Murali answers it himself)
-Answer truthfully from what is in the build:
-- Violence: **mild / cartoon** — Phantoms "tag" guests (no weapons, no damage, no blood). Tagged guests turn into
-  glowing wisps. Likely answer: unrealistic/mild violence → expected label **Minimal** or **Mild**.
-- Blood / gore: **none**. Fear: **mild suspense** (dark rooms at night, lantern light); no jump scares, no ghosts.
-- Crude humour, romance, alcohol/drugs: **none** (the Wine Cellar room is set dressing with barrels/racks; say
-  "no alcohol depicted being consumed" — if the questionnaire asks about alcohol references, answer conservatively
-  or rename the room to "Pantry Cellar" before launch; recommended).
-- Gambling / paid random items: **none** (no loot boxes for Robux; chests are free in-match loot).
-- Social: text chat via Roblox default. **Voice chat is currently ENABLED** on the experience → decide; for a
-  family-friendly 9+ target, turn voice off.
-- Free-form user creation / UGC: none. Purchases: optional cosmetic passes/products (after Gate 4).
-- Current Open Cloud reading: experience age rating **13+** (likely a default from voice/unfinished questionnaire).
-  Completing the questionnaire with voice off should allow a lower label.
-
-## Icon concept — `icon_512.png` (512×512, generated concept)
-Brass Venetian masquerade mask with clockwork gears and one glowing teal eye, a violet spark across it, manor
-silhouette + clock tower behind. No text (Roblox icons read best without words). Final icon: re-render as a clean
-512×512 with stronger contrast at 150 px; keep the mask readable at phone size.
-
-## Thumbnail concepts (1920×1080, generated concepts)
-1. `thumbnail_1_1920x1080.png` — "Who flipped the breaker?": masked guests with lanterns in the ballroom while one
-   guest on the balcony throws a sparking violet breaker. Add title text in Creator Hub art pass (left third).
-2. `thumbnail_2_1920x1080.png` — "5 floors of mystery": cutaway of the manor from Boiler Level to the Observatory
-   Tower with the brass lift.
-3. (to capture in-game) Night shot: lantern beams on a Phantom in the Library + HUD hidden.
-4. (to capture in-game) Evidence Board vote with ribbon clues.
-
-**Important:** Roblox requires thumbnails to represent the actual experience. The two generated images are
-concept/key art; before going public, replace or pair them with real in-game captures (Studio, HUD off,
-Graphics 10) of the same scenes. Don't ship a thumbnail that promises things the game doesn't have.
+- Violence: **mild / cartoon** — Phantoms "tag" guests (no weapons, no damage, no blood); tagged guests turn into
+  glowing wisps.
+- Blood / gore: **none**. Fear: **mild suspense** (dark rooms at night, lantern light, a 2 s clock-strike blackout at
+  dawn); no jump scares, no ghosts.
+- **New in v1.6: Grotto Baths** — a shallow indoor wading pool (decor only: nobody swims, drowns or changes clothes;
+  avatars just walk through ankle-deep water). Nothing romantic or suggestive; no swimwear is applied to avatars.
+- Alcohol: the B1 **Wine Cellar** (barrels and wine racks, set dressing, nothing consumed) is the only reference. v1.6
+  renamed the new emote from "Crystal Toast 🥂" to "Teacup Toast ☕" so no purchasable item shows alcohol. If the
+  questionnaire's alcohol question would raise the label, rename the room to "Pantry Cellar" (one line in
+  `Config/Manor.luau`) before answering.
+- Gambling / paid random items: **none** (chests are free in-match loot; no loot boxes for Robux).
+- Social: Roblox default text chat. **Voice chat is ON** on the experience — recommended OFF for a family audience.
+- User creation / UGC: none. Purchases: optional cosmetic passes/products (after Gate 4).
+- The Hall of Fame shows players' Roblox display names (already filtered by Roblox), top 10 only.

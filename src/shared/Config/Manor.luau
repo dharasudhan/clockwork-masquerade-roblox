@@ -1,4 +1,4 @@
--- Sterling Manor (pure data), v1.0 layout: 5 levels a player obviously walks between:
+-- Sterling Manor - now "Castle Sterling" (pure data), v1.0 layout: 5 levels a player obviously walks between:
 --   B1 Boiler Level (-1)  ·  Ground (0)  ·  1st Floor (1)  ·  2nd Floor / Attic (2)  ·  Tower (3)
 -- connected by two grand stairs (G<->1F), the Cellar Stair (G<->B1, opens off the Foyer right by
 -- the front door), the Service Stair (G<->B1), the Attic Stair (1F<->2F), the Tower Stair
@@ -31,11 +31,11 @@ Manor.Rooms = {
 	{ id = "northHall", name = "North Corridor", level = 0, x0 = -30, x1 = 30, z0 = -42, z1 = -30, lights = 2, theme = "corridor" },
 	{ id = "westHall", name = "West Corridor", level = 0, x0 = -42, x1 = -30, z0 = -42, z1 = 60, lights = 4, chests = 1, theme = "corridor" },
 	{ id = "eastHall", name = "East Corridor", level = 0, x0 = 30, x1 = 42, z0 = -42, z1 = 60, lights = 4, chests = 1, theme = "corridor" },
-	{ id = "library", name = "Library", level = 0, x0 = -90, x1 = -42, z0 = -42, z1 = -6, lights = 2, chests = 2, theme = "library" },
+	{ id = "library", name = "Royal Library", level = 0, x0 = -90, x1 = -42, z0 = -42, z1 = -6, lights = 2, chests = 2, theme = "library" },
 	{ id = "billiard", name = "Billiard Room", level = 0, x0 = -90, x1 = -60, z0 = -6, z1 = 34, lights = 1, chests = 1, theme = "billiard" },
-	{ id = "musicRoom", name = "Music Room", level = 0, x0 = -90, x1 = -42, z0 = 34, z1 = 66, lights = 2, chests = 1, theme = "music" },
+	{ id = "musicRoom", name = "Minstrel Hall", level = 0, x0 = -90, x1 = -42, z0 = 34, z1 = 66, lights = 2, chests = 1, theme = "music" },
 	{ id = "laboratory", name = "Inventor's Laboratory", level = 0, x0 = 42, x1 = 90, z0 = -42, z1 = -6, lights = 2, chests = 1, theme = "lab" },
-	{ id = "diningHall", name = "Dining Hall", level = 0, x0 = 60, x1 = 90, z0 = -6, z1 = 34, lights = 2, chests = 1, theme = "dining" },
+	{ id = "diningHall", name = "Banquet Hall", level = 0, x0 = 60, x1 = 90, z0 = -6, z1 = 34, lights = 2, chests = 1, theme = "dining" },
 	{ id = "kitchen", name = "Kitchen", level = 0, x0 = 42, x1 = 90, z0 = 34, z1 = 66, lights = 2, chests = 2, theme = "kitchen" },
 	{ id = "mapRoom", name = "Map Room", level = 0, x0 = -42, x1 = -12, z0 = -72, z1 = -42, lights = 1, chests = 1, theme = "maps" },
 	{ id = "clockWorkshop", name = "Clock Workshop", level = 0, x0 = -12, x1 = 12, z0 = -72, z1 = -42, lights = 1, chests = 1, theme = "clockShop" },
@@ -65,7 +65,7 @@ Manor.Rooms = {
 	{ id = "guestWest", name = "Rose Guest Suite", level = 1, x0 = -90, x1 = -42, z0 = -42, z1 = -6, lights = 2, chests = 2, theme = "suiteRose" },
 	{ id = "guestEast", name = "Azure Guest Suite", level = 1, x0 = 42, x1 = 90, z0 = -42, z1 = -6, lights = 2, chests = 2, theme = "suiteAzure" },
 	{ id = "atticStair", name = "Attic Stair", level = 1, span = 2, x0 = -90, x1 = -60, z0 = -6, z1 = 34, lights = 1, stair = { up = "N" }, theme = "atticStair" },
-	{ id = "trophy", name = "Trophy Room", level = 1, x0 = 60, x1 = 90, z0 = -6, z1 = 34, lights = 1, chests = 1, theme = "trophy" },
+	{ id = "trophy", name = "Armory", level = 1, x0 = 60, x1 = 90, z0 = -6, z1 = 34, lights = 1, chests = 1, theme = "trophy" },
 	{ id = "teaSalon", name = "Tea Salon", level = 1, x0 = -90, x1 = -30, z0 = 34, z1 = 66, lights = 2, chests = 2, theme = "tea" },
 	{ id = "mezzanine", name = "Clock Mezzanine", level = 1, x0 = -30, x1 = 30, z0 = 30, z1 = 60, lights = 2, chests = 1, theme = "mezzanine" },
 	{ id = "linen", name = "Linen Room", level = 1, x0 = 30, x1 = 90, z0 = 34, z1 = 66, lights = 2, chests = 1, theme = "linen" },
@@ -87,137 +87,88 @@ Manor.Rooms = {
 	{ id = "wineCellar", name = "Wine Cellar", level = -1, x0 = -42, x1 = 0, z0 = -30, z1 = 30, lights = 2, chests = 2, theme = "wineCellar" },
 	{ id = "boiler", name = "Boiler Room", level = -1, x0 = 0, x1 = 42, z0 = -30, z1 = 30, lights = 2, chests = 1, theme = "boiler" },
 	{ id = "generator", name = "Generator Vault", level = -1, x0 = 42, x1 = 90, z0 = -30, z1 = 30, lights = 2, chests = 1, theme = "generator" },
-	{ id = "coalStore", name = "Coal Store", level = -1, x0 = -42, x1 = 12, z0 = 30, z1 = 54, lights = 2, chests = 2, theme = "coal" },
-	{ id = "pumpRoom", name = "Pump Room", level = -1, x0 = 30, x1 = 42, z0 = 30, z1 = 54, lights = 1, chests = 1, theme = "pump" },
-	{ id = "laundry", name = "Laundry", level = -1, x0 = 42, x1 = 90, z0 = 30, z1 = 66, lights = 2, chests = 1, theme = "laundry" },
+	{ id = "coalStore", name = "Coal Store", level = -1, x0 = -90, x1 = -42, z0 = -30, z1 = 30, lights = 1, chests = 1, theme = "coal" },
+	{ id = "darkCellar", name = "Dark Cellar", level = -1, x0 = -90, x1 = -42, z0 = 30, z1 = 66, lights = 1, chests = 1, theme = "dark" },
 }
 
+-- doors (between rooms sharing an edge; at = centre of the opening along that edge, width = opening)
 Manor.Doors = {
-	-- ground
-	{ a = "ballroom", b = "foyer", at = -2, width = 14, level = 0 },
-	{ a = "ballroom", b = "northHall", at = 0, width = 12, level = 0 },
-	{ a = "ballroom", b = "westHall", at = 0, width = 12, level = 0 },
-	{ a = "ballroom", b = "eastHall", at = 0, width = 12, level = 0 },
-	{ a = "foyer", b = "westHall", at = 45, width = 8 },
-	{ a = "foyer", b = "cellarStair", at = 54.5, width = 8, level = 0 },
-	{ a = "eastHall", b = "cellarStair", at = 54.5, width = 8, level = 0 },
-	{ a = "northHall", b = "westHall", at = -36, width = 8 },
-	{ a = "northHall", b = "eastHall", at = -36, width = 8 },
-	{ a = "westHall", b = "library", at = -24, width = 8 },
-	{ a = "westHall", b = "westStair", at = 29.5, width = 7, level = 0 },
-	{ a = "westHall", b = "musicRoom", at = 50, width = 8 },
-	{ a = "library", b = "billiard", at = -75, width = 8 },
-	{ a = "billiard", b = "musicRoom", at = -75, width = 8 },
-	{ a = "library", b = "greenhouse", at = -66, width = 8 },
-	{ a = "greenhouse", b = "mapRoom", at = -60, width = 8 },
-	{ a = "westHall", b = "mapRoom", at = -36, width = 8 },
-	{ a = "northHall", b = "mapRoom", at = -21, width = 8 },
-	{ a = "northHall", b = "clockWorkshop", at = 0, width = 8 },
-	{ a = "northHall", b = "conservatory", at = 21, width = 8 },
-	{ a = "eastHall", b = "conservatory", at = 36, width = 8 },
-	{ a = "mapRoom", b = "clockWorkshop", at = -57, width = 8 },
-	{ a = "clockWorkshop", b = "conservatory", at = -57, width = 8 },
-	{ a = "eastHall", b = "laboratory", at = -24, width = 8 },
-	{ a = "eastHall", b = "eastStair", at = 29.5, width = 7, level = 0 },
-	{ a = "eastHall", b = "kitchen", at = 50, width = 8 },
-	{ a = "laboratory", b = "diningHall", at = 75, width = 8 },
-	{ a = "diningHall", b = "kitchen", at = 75, width = 8 },
-	{ a = "conservatory", b = "laboratory", at = 57, width = 8 },
-	{ a = "conservatory", b = "serviceStair", at = -76, width = 8, level = 0 },
-	{ a = "kitchen", b = "liftG", at = 48, width = 8 },
-	-- 1st floor
-	{ a = "gallery", b = "westLanding", at = -24, width = 8 },
-	{ a = "gallery", b = "eastLanding", at = -24, width = 8 },
-	{ a = "gallery", b = "portraitHall", at = 0, width = 10 },
-	{ a = "portraitHall", b = "westLanding", at = -36, width = 8 },
-	{ a = "portraitHall", b = "eastLanding", at = -36, width = 8 },
-	{ a = "portraitHall", b = "study", at = 0, width = 8 },
-	{ a = "portraitHall", b = "telegraph", at = -21, width = 8 },
-	{ a = "portraitHall", b = "loft", at = 21, width = 8 },
-	{ a = "westLanding", b = "telegraph", at = -36, width = 8 },
-	{ a = "eastLanding", b = "loft", at = 36, width = 8 },
-	{ a = "westLanding", b = "guestWest", at = -24, width = 8 },
-	{ a = "eastLanding", b = "guestEast", at = -24, width = 8 },
-	{ a = "westStair", b = "westLanding", at = 0, width = 8, level = 1 },
-	{ a = "eastStair", b = "eastLanding", at = 0, width = 8, level = 1 },
-	{ a = "guestEast", b = "trophy", at = 75, width = 8 },
-	{ a = "teaSalon", b = "atticStair", at = -75, width = 8, level = 1 },
-	{ a = "trophy", b = "linen", at = 75, width = 8 },
-	{ a = "westLanding", b = "teaSalon", at = -36, width = 8 },
-	{ a = "eastLanding", b = "linen", at = 36, width = 8 },
-	{ a = "teaSalon", b = "mezzanine", at = 47, width = 8 },
-	{ a = "mezzanine", b = "linen", at = 47, width = 8 },
-	{ a = "linen", b = "liftU", at = 48, width = 8 },
-	-- 2nd floor / attic
-	{ a = "atticStair", b = "draftingLoft", at = -75, width = 8, level = 2 },
-	{ a = "draftingLoft", b = "atticHall", at = -36, width = 8 },
-	{ a = "atticHall", b = "atticStore", at = -21, width = 8 },
-	{ a = "atticHall", b = "automata", at = 21, width = 8 },
-	{ a = "atticStore", b = "automata", at = -5, width = 10 },
-	{ a = "atticHall", b = "atticWorkshop", at = -27, width = 8 },
-	{ a = "atticHall", b = "towerStair", at = 0, width = 8, level = 2 },
-	{ a = "atticHall", b = "greatClock", at = 27, width = 8 },
-	{ a = "automata", b = "servants", at = 0, width = 8 },
-	{ a = "servants", b = "trunkRoom", at = 66, width = 8 },
-	{ a = "trunkRoom", b = "liftA", at = 48, width = 8 },
-	-- tower
-	{ a = "towerStair", b = "observatory", at = -67, width = 7, level = 3 },
-	{ a = "towerStair", b = "lookout", at = -67, width = 7, level = 3 },
-	-- B1 boiler level
-	{ a = "serviceStair", b = "steamHall", at = 81, width = 8, level = -1 },
-	{ a = "steamHall", b = "wineCellar", at = -21, width = 8 },
-	{ a = "steamHall", b = "boiler", at = 21, width = 8 },
-	{ a = "steamHall", b = "generator", at = 66, width = 8 },
-	{ a = "wineCellar", b = "boiler", at = 0, width = 10 },
-	{ a = "boiler", b = "generator", at = 0, width = 10 },
-	{ a = "wineCellar", b = "coalStore", at = -21, width = 8 },
-	{ a = "boiler", b = "coalStore", at = 6, width = 8 },
-	{ a = "coalStore", b = "cellarStair", at = 34.5, width = 6, level = -1 },
-	{ a = "pumpRoom", b = "cellarStair", at = 34.5, width = 6, level = -1 },
-	{ a = "boiler", b = "pumpRoom", at = 36, width = 8 },
-	{ a = "pumpRoom", b = "laundry", at = 42, width = 8 },
-	{ a = "generator", b = "laundry", at = 66, width = 8 },
-	{ a = "laundry", b = "liftB", at = 48, width = 8 },
+	{ a = "ballroom", b = "foyer", level = 0, at = 0, width = 16 },
+	{ a = "ballroom", b = "northHall", level = 0, at = 0, width = 16 },
+	{ a = "ballroom", b = "westHall", level = 0, at = -12, width = 14 },
+	{ a = "ballroom", b = "eastHall", level = 0, at = 12, width = 14 },
+	{ a = "foyer", b = "westHall", level = 0, at = 42, width = 12 },
+	{ a = "foyer", b = "eastHall", level = 0, at = 42, width = 12 },
+	{ a = "westHall", b = "library", level = 0, at = -24, width = 14 },
+	{ a = "westHall", b = "billiard", level = 0, at = 14, width = 10 },
+	{ a = "westHall", b = "musicRoom", level = 0, at = 50, width = 12 },
+	{ a = "eastHall", b = "laboratory", level = 0, at = -24, width = 14 },
+	{ a = "eastHall", b = "diningHall", level = 0, at = 14, width = 10 },
+	{ a = "eastHall", b = "kitchen", level = 0, at = 50, width = 12 },
+	{ a = "northHall", b = "mapRoom", level = 0, at = -24, width = 10 },
+	{ a = "northHall", b = "clockWorkshop", level = 0, at = 0, width = 10 },
+	{ a = "northHall", b = "conservatory", level = 0, at = 30, width = 14 },
+	{ a = "library", b = "greenhouse", level = 0, at = -60, width = 10 },
+	{ a = "diningHall", b = "kitchen", level = 0, at = 14, width = 12 },
+	{ a = "billiard", b = "musicRoom", level = 0, at = 14, width = 12 },
+	{ a = "ballroom", b = "gallery", level = 1, at = 0, width = 16 }, -- the mezzanine
+	{ a = "northHall", b = "portraitHall", level = 1, at = 0, width = 16 },
+	{ a = "portraitHall", b = "westLanding", level = 1, at = -12, width = 12 },
+	{ a = "portraitHall", b = "eastLanding", level = 1, at = 12, width = 12 },
+	{ a = "portraitHall", b = "study", level = 1, at = 0, width = 10 },
+	{ a = "portraitHall", b = "telegraph", level = 1, at = -24, width = 10 },
+	{ a = "portraitHall", b = "loft", level = 1, at = 24, width = 10 },
+	{ a = "westLanding", b = "guestWest", level = 1, at = -24, width = 14 },
+	{ a = "eastLanding", b = "guestEast", level = 1, at = -24, width = 14 },
+	{ a = "westLanding", b = "atticStair", level = 1, at = 12, width = 12 },
+	{ a = "eastLanding", b = "trophy", level = 1, at = 12, width = 12 },
+	{ a = "westLanding", b = "teaSalon", level = 1, at = 50, width = 12 },
+	{ a = "eastLanding", b = "linen", level = 1, at = 50, width = 12 },
+	{ a = "mezzanine", b = "gallery", level = 1, at = 0, width = 16 },
+	{ a = "westStair", b = "westLanding", level = 1, at = 14, width = 12 },
+	{ a = "eastStair", b = "eastLanding", level = 1, at = 14, width = 12 },
+	{ a = "cellarStair", b = "westHall", level = 0, at = 42, width = 10 },
+	{ a = "cellarStair", b = "eastHall", level = 0, at = 42, width = 10 },
+	{ a = "atticStair", b = "draftingLoft", level = 2, at = -24, width = 12 },
+	{ a = "atticHall", b = "atticStore", level = 2, at = -12, width = 14 },
+	{ a = "atticHall", b = "automata", level = 2, at = 12, width = 14 },
+	{ a = "atticHall", b = "atticWorkshop", level = 2, at = -24, width = 10 },
+	{ a = "atticHall", b = "towerStair", level = 2, at = 0, width = 12 },
+	{ a = "atticHall", b = "greatClock", level = 2, at = 24, width = 10 },
+	{ a = "steamHall", b = "wineCellar", level = -1, at = -24, width = 12 },
+	{ a = "steamHall", b = "boiler", level = -1, at = 12, width = 12 },
+	{ a = "steamHall", b = "generator", level = -1, at = 48, width = 12 },
+	{ a = "boiler", b = "coalStore", level = -1, at = -24, width = 12 },
+	{ a = "wineCellar", b = "darkCellar", level = -1, at = 48, width = 12 },
+	{ a = "servants", b = "trunkRoom", level = 2, at = 36, width = 12 },
+	{ a = "towerStair", b = "observatory", level = 3, at = 24, width = 12 },
+	{ a = "towerStair", b = "lookout", level = 3, at = -24, width = 12 },
 }
 
--- Breaker terminals (6, spread over B1 / G / 1F / 2F / Tower; each night uses 5 of them): the
--- cabinet stands against `side` of its room ("N" | "S" | "W" | "E"), centred `at` along that wall.
-Manor.Breakers = {
-	{ id = "A", room = "generator", side = "E", at = 0 },
-	{ id = "B", room = "clockWorkshop", side = "N", at = 0 },
-	{ id = "C", room = "atticWorkshop", side = "N", at = -27 },
-	{ id = "D", room = "laboratory", side = "E", at = -24 },
-	{ id = "E", room = "telegraph", side = "W", at = -57 },
-	{ id = "F", room = "observatory", side = "N", at = 27 },
+-- lockable shortcuts: sealed doors the Phantom can spend shroud to open / guests to barricade
+Manor.Shortcuts = {
+	{ a = "ballroom", b = "conservatory", level = 0, at = 30, width = 10, lock = 3 },
+	{ a = "billiard", b = "guestWest", level = 1, at = 14, width = 10, lock = 2 },
+	{ a = "diningHall", b = "servants", level = 2, at = 12, width = 10, lock = 2 },
+	{ a = "musicRoom", b = "teaSalon", level = 1, at = 50, width = 12, lock = 3 },
+	{ a = "laboratory", b = "loft", level = 1, at = 24, width = 10, lock = 2 },
+	{ a = "greenhouse", b = "guestWest", level = 1, at = -60, width = 10, lock = 3 },
 }
 
--- Night 2: blueprint page cabinets (pages hide in 3 of these each Day) and the projector.
-Manor.Cabinets = {
-	{ id = "cab1", room = "library", side = "W", at = -14 },
-	{ id = "cab2", room = "draftingLoft", side = "W", at = -14 },
-	{ id = "cab3", room = "mapRoom", side = "W", at = -57 },
-	{ id = "cab4", room = "study", side = "E", at = -57 },
-	{ id = "cab5", room = "wineCellar", side = "W", at = 12 },
-	{ id = "cab6", room = "trophy", side = "E", at = 22 },
-	{ id = "cab7", room = "atticStore", side = "W", at = 8 },
-	{ id = "cab8", room = "lookout", side = "W", at = -57 },
+-- the front door (Foyer -> terrace); the lobby span sits south of it (Config/Match Lobby*)
+Manor.FrontDoor = { at = 8, width = 10, z = 60 }
+-- ghost-gates (how the Phantom enters each night; all sit on the ground floor's outer walls)
+Manor.GhostGates = {
+	{ room = "ballroom", at = 0, face = "N", width = 12 },
+	{ room = "library", at = -60, face = "W", width = 10 },
+	{ room = "laboratory", at = -24, face = "E", width = 10 },
+	{ room = "conservatory", at = 30, face = "N", width = 10 },
+	{ room = "diningHall", at = 14, face = "E", width = 10 },
+	{ room = "musicRoom", at = 50, face = "S", width = 10 },
+	{ room = "kitchen", at = 14, face = "S", width = 10 },
+	{ room = "billiard", at = -24, face = "S", width = 10 },
 }
-Manor.Projector = { room = "library", x = -50, z = -30 }
-
--- Night 3 finale: the three Master Override Keys and the Exit Console (ballroom dais).
-Manor.Keys = {
-	{ id = "engine", name = "Clockwork Engine Key", room = "generator", x = 60, z = 0 },
-	{ id = "attic", name = "Attic Key", room = "atticStore", x = -21, z = 8 },
-	{ id = "greenhouse", name = "Greenhouse Key", room = "greenhouse", x = -56, z = -72 },
-}
-Manor.Console = { room = "ballroom", x = 0, z = 0, ringRadius = 11 }
-
--- Expose: the Evidence Board (Foyer, west wall) where guests vote by day.
-Manor.EvidenceBoard = { room = "foyer", side = "W", at = 38 }
-
--- Round spawn ring (ballroom centre) and the lobby terrace (south of the manor, outside).
-Manor.Spawn = { x = 0, z = 0, radius = 14, level = 0 }
-Manor.Lobby = { x0 = -26, x1 = 26, z0 = 110, z1 = 154, spawn = { x = 0, z = 132 } }
-Manor.FrontDoorZ = 60 -- foyer south wall (facade, front path)
+-- where the guests first gather (terrace centre)
+Manor.Spawn = { x = 0, y = 132, z = 132 }
 
 return Manor

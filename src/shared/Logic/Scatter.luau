@@ -66,6 +66,13 @@ function Scatter.avoidPoints(M, Layout)
 	for _, b in Layout.breakers(M) do
 		add(b.standX, b.standZ, b.level)
 	end
+	-- v1.6.2: pools - nobody materialises in the water at dawn
+	for _, pool in M.Pools or {} do
+		local r = byId[pool.room]
+		if r then
+			add(pool.x, pool.z, r.level, pool.r)
+		end
+	end
 	for _, list in { M.Keys or {}, { M.Projector }, { M.Console } } do
 		for _, k in list do
 			local r = byId[k.room]

@@ -397,7 +397,8 @@ function builders.Quests()
 	else
 		local xp = me():GetAttribute("SeasonXP") or 0
 		local t = math.min(tonumber(tier) or 1, SeasonCfg.TierCount)
-		sname.Text = string.format("❄️ %s — TIER %d/%d%s", SeasonCfg.Name, t, SeasonCfg.TierCount, if premium == "1" then "  👑 PREMIUM" or "" else "")
+		local crown = if premium == "1" then "  👑 PREMIUM" else ""
+		sname.Text = string.format("❄️ %s — TIER %d/%d%s", SeasonCfg.Name, t, SeasonCfg.TierCount, crown)
 		if t >= SeasonCfg.TierCount then
 			fill.Size = UDim2.fromScale(1, 1)
 			xpText.Text = "MAX TIER!"

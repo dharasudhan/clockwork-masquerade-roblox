@@ -434,7 +434,7 @@ function ChaseService.dropGlow(p): boolean
 	end
 	local part = Build.part({ name = "GlowStick", parent = effects(), size = Vector3.new(0.3, 0.3, 1.4), cf = CFrame.new(pos.X, floorY(pos) + 0.2, pos.Z) * CFrame.Angles(0, math.random() * 6.28, 0), color = "Glow", material = Enum.Material.Neon, collide = false, query = false, shadow = false })
 	Build.light(part, "PointLight", Build.color("Glow"), 2, GS.radius)
-	table.insert(glows, { owner = p.id, x = pos.X, y = pos.Y, z = pos.Z, untilT = Clock.now() + GS.lifetime, part = part })
+	table.insert(glows, { owner = p.id, x = pos.X, y = p.y, z = pos.Z, untilT = Clock.now() + GS.lifetime, part = part })
 	Participants.set(p, "GlowStick", p.inv.GlowStick)
 	return true
 end
@@ -504,7 +504,7 @@ function ChaseService.step(dt: number)
 				end
 				Participants.set(p, "Revealed", revealed)
 				local beams = LanternService.beamsOn(p.id)
-				local recoil = if p.lastTag and now - p.lastTag < P.recoilSeconds else P.recoilFactor
+				local recoil = if p.lastTag and now - p.lastTag < P.recoilSeconds then P.recoilFactor else 1
 				local held = now < (p.frozenUntil or 0) or now < (p.stunUntil or 0)
 				local mul = if hooks.phantomSpeed then hooks.phantomSpeed() else 1
 				setSpeed(p, if p.transformed and not held then (P.nightSpeed + escSpeed) * mul * Lantern.speedFactor(beams, Gadgets.Lantern) * recoil else 0)
@@ -533,8 +533,8 @@ function ChaseService.step(dt: number)
 						p.slickUntil = now + W.slickSlowSeconds
 					end
 				end
+				slowed = now < (p.slickUntil or 0)
 			end
-			slowed = now < (p.slickUntil or 0)
 			Participants.set(p, "Slowed", slowed)
 			local boost = if now < (p.boostUntil or 0) then Items.Boots.factor else 1
 			local shaken = if now < (p.shakenUntil or 0) then Match.Expose.shakenFactor else 1

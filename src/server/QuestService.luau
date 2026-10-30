@@ -92,6 +92,7 @@ function QuestService.ensure(player: Player)
 end
 
 -- Season XP for a finished match (called by DataService.award).
+-- v1.3: the premium pass shortens the grind (never power) via Config/Season.PremiumXpFactor.
 function QuestService.seasonXp(data, xp: number)
 	if not SeasonLogic.active(Season, DataService.today()) then
 		return nil
@@ -105,6 +106,9 @@ function QuestService.seasonXp(data, xp: number)
 		data.Season.Id = Season.Id
 		data.Season.XP = 0
 		data.Season.Tier = 1
+	end
+	if data.Season.Premium then
+		xp = math.floor(xp * (Season.PremiumXpFactor or 1.15))
 	end
 	data.Season.XP += math.max(0, math.floor(xp))
 	local tier = SeasonLogic.tierFor(data.Season.XP, Season)

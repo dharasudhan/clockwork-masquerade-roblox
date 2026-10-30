@@ -5,7 +5,8 @@
 --   Class     Mechanist / Illuminator cards
 --   Settings  Music, Sound effects, Hints toggles + "Replay story intro" + "Replay tutorial"
 --   Quests    daily + weekly objectives with live progress and Gear Token payouts, plus the
---             season track (tier, XP bar, premium flag, tier rewards); lobby button + Settings
+--             season track (tier, XP bar, premium flag, FREE + PREMIUM tier rewards); lobby
+--             button + Settings
 --   Vote      Expose vote at the Evidence Board: everyone in the match with their ribbon colour,
 --             vote counts and the clues found today
 --   Items     what each carried item does (icon, name, count, one-line tip)
@@ -375,35 +376,39 @@ local function questRows(attr: string): { any }
 	return out
 end
 
-local function seasonRewardLine(): string
-	local bits = {}
+-- v1.3: two reward tracks - the free track everyone earns, and the premium track that needs the
+-- season pass (Progression.owns gates on data.Season.Premium). Returns (freeLine, premiumLine).
+local function seasonRewardLines(): (string, string)
+	local freeBits, premBits = {}, {}
 	for _, kind in { "Mask", "Lantern", "Trail", "Emote" } do
 		for _, c in Cosmetics.ofKind(kind) do
 			if c.seasonTier then
+				local bits = if c.seasonPremium then premBits else freeBits
 				table.insert(bits, string.format("T%d %s %s", c.seasonTier, c.icon or "◆", string.gsub(c.name, "%s%(.*%)$", "")))
 			end
 		end
 	end
-	table.sort(bits)
-	return table.concat(bits, "   ")
+	table.sort(freeBits)
+	table.sort(premBits)
+	return table.concat(freeBits, "   "), table.concat(premBits, "   ")
 end
 
 function builders.Quests()
 	title.Text = string.format("QUESTS   ⚙ %d Gear Tokens", me():GetAttribute("GearTokens") or 0)
-	-- season block (fixed at the top): state, XP bar, tier rewards
+	-- season block (fixed at the top): state, XP bar, tier rewards (free + premium tracks)
 	local season = Instance.new("Frame")
 	season.Name = "Season"
 	season.BackgroundTransparency = 1
-	season.Size = UDim2.fromScale(1, 0.34)
+	season.Size = UDim2.fromScale(1, 0.4)
 	season.ZIndex = 12
 	season.Parent = content
 	local sname = Hud.label("SeasonName", season, "")
-	sname.Size = UDim2.fromScale(1, 0.28)
+	sname.Size = UDim2.fromScale(1, 0.24)
 	sname.TextXAlignment = Enum.TextXAlignment.Left
 	sname.TextColor3 = rgb("Brass")
 	local xpBar = Hud.panel("SeasonXP", "Iron", 0.2, season)
-	xpBar.Size = UDim2.fromScale(1, 0.2)
-	xpBar.Position = UDim2.fromScale(0, 0.31)
+	xpBar.Size = UDim2.fromScale(1, 0.17)
+	xpBar.Position = UDim2.fromScale(0, 0.26)
 	local st = Instance.new("UIStroke")
 	st.Color = rgb("Brass")
 	st.Thickness = 1
@@ -418,16 +423,23 @@ function builders.Quests()
 	xpText.ZIndex = 2
 	xpText.TextStrokeTransparency = 0.5
 	local rewards = Hud.label("Rewards", season, "")
-	rewards.Size = UDim2.fromScale(1, 0.44)
-	rewards.Position = UDim2.fromScale(0, 0.55)
+	rewards.Size = UDim2.fromScale(1, 0.2)
+	rewards.Position = UDim2.fromScale(0, 0.45)
 	rewards.TextYAlignment = Enum.TextYAlignment.Top
 	rewards.TextWrapped = true
 	rewards.TextColor3 = rgb("Amber")
+	local premRewards = Hud.label("PremiumRewards", season, "")
+	premRewards.Size = UDim2.fromScale(1, 0.2)
+	premRewards.Position = UDim2.fromScale(0, 0.66)
+	premRewards.TextYAlignment = Enum.TextYAlignment.Top
+	premRewards.TextWrapped = true
+	premRewards.TextColor3 = rgb("Gold")
 	local sid, tier, premium = string.match(me():GetAttribute("Season") or "", "^(.-):(%d+):(%d)$")
 	if sid == nil or sid == "" or not seasonLive() then
 		sname.Text = string.format("❄️ %s — COMING SOON!%s", SeasonCfg.Name, if premium == "1" then "  👑" else "")
 		xpText.Text = "Season 1 starts when the gates open!"
 		fill.Size = UDim2.fromScale(0, 1)
+		premRewards.Text = "🔒 PREMIUM TRACK: buy the Winter Masquerade Pass when it goes on sale"
 	else
 		local xp = me():GetAttribute("SeasonXP") or 0
 		local t = math.min(tonumber(tier) or 1, SeasonCfg.TierCount)
@@ -441,14 +453,16 @@ function builders.Quests()
 			fill.Size = UDim2.fromScale(math.clamp(into / SeasonCfg.XpPerTier, 0, 1), 1)
 			xpText.Text = string.format("%d / %d XP to tier %d", into, SeasonCfg.XpPerTier, t + 1)
 		end
-		rewards.Text = "TIER REWARDS: " .. seasonRewardLine()
+		local freeLine, premLine = seasonRewardLines()
+		rewards.Text = "FREE TRACK: " .. freeLine
+		premRewards.Text = (if premium == "1" then "👑 " else "🔒 ") .. "PREMIUM TRACK: " .. premLine
 	end
 	-- quests (scroll): section headers + one row per quest
 	local area = Instance.new("Frame")
 	area.Name = "Area"
 	area.BackgroundTransparency = 1
-	area.Size = UDim2.fromScale(1, 0.63)
-	area.Position = UDim2.fromScale(0, 0.37)
+	area.Size = UDim2.fromScale(1, 0.57)
+	area.Position = UDim2.fromScale(0, 0.43)
 	area.ZIndex = 12
 	area.Parent = content
 	local g = grid(area, 1, 46)

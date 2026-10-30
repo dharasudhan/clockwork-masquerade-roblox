@@ -4,6 +4,8 @@
 --             (placeholder) Robux items that say "Coming soon" until their ids exist
 --   Class     Mechanist / Illuminator cards
 --   Settings  Music, Sound effects, Hints toggles + "Replay story intro" + "Replay tutorial"
+--   Quests    daily + weekly objectives with live progress and Gear Token payouts, plus the
+--             season track (tier, XP bar, premium flag, tier rewards); lobby button + Settings
 --   Vote      Expose vote at the Evidence Board: everyone in the match with their ribbon colour,
 --             vote counts and the clues found today
 --   Items     what each carried item does (icon, name, count, one-line tip)
@@ -17,6 +19,9 @@ local Monetization = require(Shared.Config.Monetization)
 local Gadgets = require(Shared.Config.Gadgets)
 local Items = require(Shared.Config.Items)
 local Match = require(Shared.Config.Match)
+local QuestsCfg = require(Shared.Config.Quests)
+local SeasonCfg = require(Shared.Config.Season)
+local SeasonLogic = require(Shared.Logic.Season)
 local Hud = require(script.Parent.Hud)
 local State = require(script.Parent.State)
 local Input = require(script.Parent.Input)
@@ -75,6 +80,10 @@ function Menus.init(sendFn: (string, any?) -> (), replayFn: (string) -> ())
 	content.Position = UDim2.fromScale(0.03, 0.15)
 	content.ZIndex = 11
 	content.Parent = frame
+	-- v1.2: live-refresh the Quests panel (pcall: headless smoke players may lack the signal)
+	pcall(function()
+		Menus.watchQuests(Players.LocalPlayer)
+	end)
 end
 
 local function clear()
@@ -140,6 +149,28 @@ local function me(): Player
 	return Players.LocalPlayer
 end
 
+-- v1.2: season window by the client clock (display only - the server decides XP and grants)
+local function seasonLive(): boolean
+	return SeasonLogic.active(SeasonCfg, math.floor(os.time() / 86400))
+end
+
+-- v1.2: Robux items the shop should not offer right now: the one-time starter trunk once
+-- bought, and the season pass while no season is scheduled/running.
+local function robuxHidden(key: string): boolean
+	local def = Monetization.Products[key]
+	if not def then
+		return false
+	end
+	if def.starter and me():GetAttribute("StarterPackBought") == true then
+		return true
+	end
+	if def.season and not seasonLive() then
+		return true
+	end
+	return false
+end
+Menus.robuxHidden = robuxHidden
+
 local function owned(id: string): boolean
 	local list = me():GetAttribute("Owned") or ""
 	return table.find(string.split(list, ","), id) ~= nil
@@ -167,6 +198,10 @@ end
 
 local function promptRobux(kind: string, key: string)
 	local def = if kind == "pass" then Monetization.Passes[key] else Monetization.Products[key]
+	if kind == "product" and robuxHidden(key) then
+		State.toast = { text = "You already have this one!", color = "Amber", at = os.clock() }
+		return
+	end
 	if not def or def.id == 0 then
 		State.toast = { text = "Coming soon! (Robux items are not on sale yet)", color = "Amber", at = os.clock() }
 		return
@@ -240,6 +275,9 @@ function builders.Shop()
 	local g = grid(area, 3, 52)
 	if shopTab == "Robux" then
 		for i, key in Monetization.ShopOrder do
+			if robuxHidden(key) then
+				continue
+			end
 			local isPass = Monetization.Passes[key] ~= nil
 			local def = if isPass then Monetization.Passes[key] else Monetization.Products[key]
 			local status = if def.id == 0 then "(soon)" else ""
@@ -310,6 +348,144 @@ function builders.Settings()
 	button("OpenShop", "🛒 Shop", "Copper", g, function()
 		Menus.open("Shop")
 	end).LayoutOrder = 6
+	button("OpenQuests", "📜 Quests & Season", "Copper", g, function()
+		Menus.open("Quests")
+	end).LayoutOrder = 7
+end
+
+-- quest/season mirror (server -> player attributes, see DataService.publish):
+--   QuestDaily / QuestWeekly = "id:progress/goal:done|..." (Logic/Quests.summary)
+--   Season = "id:tier:premium" (id "" = no active season), SeasonXP = total season XP
+local QuestDef = {}
+for _, q in QuestsCfg.DailyPool do
+	QuestDef[q.id] = q
+end
+for _, q in QuestsCfg.WeeklyPool do
+	QuestDef[q.id] = q
+end
+
+local function questRows(attr: string): { any }
+	local out = {}
+	for _, part in string.split(me():GetAttribute(attr) or "", "|") do
+		local id, prog, goal, done = string.match(part, "^(.-):(%d+)/(%d+):(%d)$")
+		if id then
+			table.insert(out, { id = id, progress = tonumber(prog) or 0, goal = tonumber(goal) or 1, done = done == "1" })
+		end
+	end
+	return out
+end
+
+local function seasonRewardLine(): string
+	local bits = {}
+	for _, kind in { "Mask", "Lantern", "Trail", "Emote" } do
+		for _, c in Cosmetics.ofKind(kind) do
+			if c.seasonTier then
+				table.insert(bits, string.format("T%d %s %s", c.seasonTier, c.icon or "◆", string.gsub(c.name, "%s%(.*%)$", "")))
+			end
+		end
+	end
+	table.sort(bits)
+	return table.concat(bits, "   ")
+end
+
+function builders.Quests()
+	title.Text = string.format("QUESTS   ⚙ %d Gear Tokens", me():GetAttribute("GearTokens") or 0)
+	-- season block (fixed at the top): state, XP bar, tier rewards
+	local season = Instance.new("Frame")
+	season.Name = "Season"
+	season.BackgroundTransparency = 1
+	season.Size = UDim2.fromScale(1, 0.34)
+	season.ZIndex = 12
+	season.Parent = content
+	local sname = Hud.label("SeasonName", season, "")
+	sname.Size = UDim2.fromScale(1, 0.28)
+	sname.TextXAlignment = Enum.TextXAlignment.Left
+	sname.TextColor3 = rgb("Brass")
+	local xpBar = Hud.panel("SeasonXP", "Iron", 0.2, season)
+	xpBar.Size = UDim2.fromScale(1, 0.2)
+	xpBar.Position = UDim2.fromScale(0, 0.31)
+	local st = Instance.new("UIStroke")
+	st.Color = rgb("Brass")
+	st.Thickness = 1
+	st.Parent = xpBar
+	local fill = Instance.new("Frame")
+	fill.Name = "Fill"
+	fill.BackgroundColor3 = rgb("Gold")
+	fill.BorderSizePixel = 0
+	fill.Size = UDim2.fromScale(0, 1)
+	fill.Parent = xpBar
+	local xpText = Hud.label("Text", xpBar, "")
+	xpText.ZIndex = 2
+	xpText.TextStrokeTransparency = 0.5
+	local rewards = Hud.label("Rewards", season, "")
+	rewards.Size = UDim2.fromScale(1, 0.44)
+	rewards.Position = UDim2.fromScale(0, 0.55)
+	rewards.TextYAlignment = Enum.TextYAlignment.Top
+	rewards.TextWrapped = true
+	rewards.TextColor3 = rgb("Amber")
+	local sid, tier, premium = string.match(me():GetAttribute("Season") or "", "^(.-):(%d+):(%d)$")
+	if sid == nil or sid == "" or not seasonLive() then
+		sname.Text = string.format("❄️ %s — COMING SOON!%s", SeasonCfg.Name, if premium == "1" then "  👑" else "")
+		xpText.Text = "Season 1 starts when the gates open!"
+		fill.Size = UDim2.fromScale(0, 1)
+	else
+		local xp = me():GetAttribute("SeasonXP") or 0
+		local t = math.min(tonumber(tier) or 1, SeasonCfg.TierCount)
+		local crown = if premium == "1" then "  👑 PREMIUM" else ""
+		sname.Text = string.format("❄️ %s — TIER %d/%d%s", SeasonCfg.Name, t, SeasonCfg.TierCount, crown)
+		if t >= SeasonCfg.TierCount then
+			fill.Size = UDim2.fromScale(1, 1)
+			xpText.Text = "MAX TIER!"
+		else
+			local into = xp - (t - 1) * SeasonCfg.XpPerTier
+			fill.Size = UDim2.fromScale(math.clamp(into / SeasonCfg.XpPerTier, 0, 1), 1)
+			xpText.Text = string.format("%d / %d XP to tier %d", into, SeasonCfg.XpPerTier, t + 1)
+		end
+		rewards.Text = "TIER REWARDS: " .. seasonRewardLine()
+	end
+	-- quests (scroll): section headers + one row per quest
+	local area = Instance.new("Frame")
+	area.Name = "Area"
+	area.BackgroundTransparency = 1
+	area.Size = UDim2.fromScale(1, 0.63)
+	area.Position = UDim2.fromScale(0, 0.37)
+	area.ZIndex = 12
+	area.Parent = content
+	local g = grid(area, 1, 46)
+	local order = 0
+	local function section(text: string)
+		order += 1
+		local l = Hud.label("Section" .. order, g, text)
+		l.LayoutOrder = order
+		l.BackgroundTransparency = 0.4
+		l.BackgroundColor3 = rgb("Coal")
+		l.TextColor3 = rgb("Brass")
+		l.ZIndex = 12
+	end
+	local function rows(attr: string)
+		local list = questRows(attr)
+		if #list == 0 then
+			order += 1
+			local l = Hud.label("Empty" .. order, g, "Finish a match to get your quests!")
+			l.LayoutOrder = order
+			l.ZIndex = 12
+		end
+		for _, q in list do
+			order += 1
+			local def = QuestDef[q.id]
+			local text = if def then def.text else q.id
+			local tokens = if def then def.tokens else 0
+			local done = q.done or q.progress >= q.goal
+			local b = button("Quest_" .. q.id, string.format("%s\n%d/%d   ⚙ %d%s", text, math.min(q.progress, q.goal), q.goal, tokens, if done then "  ✔" else ""), if done then "TealNeon" else "TealDeep", g, function()
+			end)
+			b.LayoutOrder = order
+			b.TextXAlignment = Enum.TextXAlignment.Left
+		end
+	end
+	section("📅 TODAY")
+	rows("QuestDaily")
+	section("🗓️ THIS WEEK")
+	rows("QuestWeekly")
 end
 
 -- everyone in the match (players' characters + bots) that can still be voted for
@@ -447,6 +623,41 @@ function Menus.open(kind: string)
 		pcall(function()
 			GuiService.SelectedObject = firstButton
 		end)
+	end
+end
+
+-- v1.2: live refresh of the Quests panel (quest progress, season XP/tier, tokens can change
+-- while it is open - e.g. a payout lands). Rebuilds the panel and keeps the gamepad focus on the
+-- same-named button.
+local refreshQueued = false
+local function refreshQuests()
+	if State.panel ~= "Quests" or refreshQueued then
+		return
+	end
+	refreshQueued = true
+	task.defer(function()
+		refreshQueued = false
+		if State.panel ~= "Quests" then
+			return
+		end
+		local sel = GuiService.SelectedObject
+		local selName = sel and sel:IsDescendantOf(frame) and sel.Name
+		Menus.open("Quests")
+		if selName and Input.device() == "gamepad" then
+			local again = frame:FindFirstChild(selName, true)
+			if again then
+				pcall(function()
+					GuiService.SelectedObject = again
+				end)
+			end
+		end
+	end)
+end
+Menus._refreshQuests = refreshQuests
+
+function Menus.watchQuests(player: Player)
+	for _, a in { "QuestDaily", "QuestWeekly", "Season", "SeasonXP", "GearTokens" } do
+		player:GetAttributeChangedSignal(a):Connect(refreshQuests)
 	end
 end
 

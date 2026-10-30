@@ -1,6 +1,6 @@
 -- The Clockwork Masquerade - client entry: HUD, one input map for touch / keyboard / gamepad
--- (Input), menus (shop, class, settings, vote, items), the story intro, the guided first match,
--- lantern aim, prompt filter, music/SFX. Controls: see Input.luau.
+-- (Input), menus (shop, class, settings, quests, vote, items), the story intro, the guided
+-- first match, lantern aim, prompt filter, music/SFX. Controls: see Input.luau.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -224,6 +224,12 @@ Notify.OnClientEvent:Connect(function(payload)
 		if State.panel == "Shop" then
 			Menus.open("Shop")
 		end
+	elseif k == "quest" then
+		-- a daily/weekly quest just completed (QuestService.onMatchEnd)
+		State.toast = { text = string.format("✔ %s  +%d ⚙", tostring(payload.text), tonumber(payload.tokens) or 0), color = "TealNeon", at = os.clock() }
+	elseif k == "seasonTier" then
+		-- season tier up (DataService.award): the cosmetic unlocks via Progression.owns
+		Hud.banner(string.format("❄️ SEASON TIER %d!", tonumber(payload.tier) or 0), "Reward unlocked - check the Quests panel!", "Gold", 4)
 	end
 end)
 

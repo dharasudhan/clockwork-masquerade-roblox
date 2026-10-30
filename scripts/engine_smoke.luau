@@ -458,6 +458,7 @@ local DEBUG_BAL = process.env.DEBUG_BAL == "1"
 local ManorBuilder, LightingService, MatchService, BotService, GridService, ChaseService
 local LanternService, ChestService, Participants, Clock, DataService, Net, ItemService, LiftService
 local ExposeService, ArchiveService, FinaleService, AbilityService, ShopService
+local QuestService, EventService
 step("require server modules", function()
 	Clock = requireModule(Server.Clock)
 	ManorBuilder = requireModule(Server.ManorBuilder)
@@ -478,6 +479,8 @@ step("require server modules", function()
 	FinaleService = requireModule(Server.FinaleService)
 	AbilityService = requireModule(Server.AbilityService)
 	ShopService = requireModule(Server.ShopService)
+	QuestService = requireModule(Server.QuestService)
+	EventService = requireModule(Server.EventService)
 end)
 
 local built
@@ -656,7 +659,7 @@ step("DataService: profile loads with safe defaults + leaderstats", function()
 	taskLib.wait(0.1)
 	local data = DataService.get(human)
 	local daily = Progression.Daily[1].tokens
-	assert(data and data.Wins.Guest == 0 and data.Version == 2, "bad defaults")
+	assert(data and data.Wins.Guest == 0 and data.Version == 3, "bad defaults")
 	assert(data.GearTokens == daily and data.Daily.Streak == 1, "daily login day 1 not granted: " .. tostring(data.GearTokens))
 	assert(human.leaderstats["Gear Tokens"].Value == daily, "leaderstats")
 	assert(human:GetAttribute("IntroSeen") == false and human:GetAttribute("TutorialDone") == false, "intro/tutorial flags")
@@ -795,7 +798,8 @@ step("full 3-night match, 1 human + 5 bots: Night 1 Breaker -> Dawn -> Night 2 A
 		assert(seen.floors[l], "nobody reached level " .. l)
 	end
 	local data = DataService.get(human)
-	assert(data.Played == 1 and data.GearTokens == res.tokens and data.XP > 0, "save not updated")
+	-- v1.1: daily quests completed by this match pay on top of the match tokens
+	assert(data.Played == 1 and data.GearTokens >= res.tokens and data.XP > 0, "save not updated")
 	ok = run(3, function()
 		return phase() == "Lobby"
 	end)
@@ -1430,6 +1434,86 @@ step("shop + mocked Robux purchases: buy with Gear Tokens, equip, ProcessReceipt
 	DataService.setClass(human, "Mechanist")
 end)
 
+
+step("v1.1/v1.2: save v2->v3 migration, quests (corrupt list rerolls, payout once), season premium, starter flag, manor events", function()
+	local data = DataService.get(human)
+	local SaveData = requireModule(Shared.Logic.SaveData)
+	local Template = requireModule(Shared.Config.DataTemplate)
+	-- a v2 save (no Quests/Season/StarterPackBought) sanitises into a complete v3 save
+	local v2 = { Version = 2, GearTokens = 50, XP = 10, Level = 1, Wins = { Guest = 1, Phantom = 0 }, Played = 3 }
+	assert(SaveData.sanitize(v2, Template) > 0, "v2 save needed no fixes")
+	assert(type(v2.Quests) == "table" and v2.Quests.Day == 0 and type(v2.Quests.Daily) == "table", "v2 quests")
+	assert(v2.Season.Id == "" and v2.Season.Tier == 1 and v2.Season.Premium == false and v2.StarterPackBought == false, "v2 season")
+	assert(v2.GearTokens == 50 and v2.Wins.Guest == 1, "v2 data lost")
+	-- quests: a corrupt saved list rerolls; ensure is idempotent on the same day
+	data.Quests.Daily = { { id = "nope" }, 5 }
+	data.Quests.Day = DataService.today()
+	QuestService.ensure(human)
+	assert(#data.Quests.Daily == 3 and data.Quests.Daily[1].progress == 0, "corrupt daily list not rerolled")
+	assert(#data.Quests.Weekly == 2, "weekly list")
+	local before = data.Quests.Daily[1].id
+	QuestService.ensure(human)
+	assert(data.Quests.Daily[1].id == before, "ensure rerolled a valid list")
+	-- a match completes every "matches" quest once and pays exactly its tokens
+	for _, q in data.Quests.Daily do
+		q.progress, q.done = 0, false
+	end
+	local expect = 0
+	for _, q in data.Quests.Daily do
+		if q.stat == "matches" and q.goal == 1 then
+			expect += q.tokens
+		end
+	end
+	local t0 = data.GearTokens
+	QuestService.onMatchEnd(human, { chests = 0, repairs = 0, tags = 0, exposes = 0, nightsWon = 0 }, false, { human })
+	assert(data.GearTokens - t0 >= expect, "quest payout " .. (data.GearTokens - t0) .. " < " .. expect)
+	local t1 = data.GearTokens
+	QuestService.onMatchEnd(human, { chests = 0, repairs = 0, tags = 0, exposes = 0, nightsWon = 0 }, false, { human })
+	for _, q in data.Quests.Daily do
+		if q.stat == "matches" and q.goal == 1 then
+			assert(q.done, "matches quest not done")
+		end
+	end
+	assert(string.find(human:GetAttribute("QuestDaily") or "", ":", 1, true), "QuestDaily mirror")
+	-- season: inactive by default (no XP); a new season resets premium bought for an old one
+	assert(QuestService.seasonXp(data, 500) == nil, "season XP accrued while unscheduled")
+	local Season = requireModule(Shared.Config.Season)
+	local s0, e0 = Season.StartsAt, Season.EndsAt
+	Season.StartsAt, Season.EndsAt = DataService.today() - 1, 0
+	data.Season = { Id = "old-season", XP = 900, Tier = 4, Premium = true }
+	assert(QuestService.seasonXp(data, 260) == 2, "season tier-up")
+	assert(data.Season.Id == Season.Id and data.Season.Premium == false, "old premium carried into a new season")
+	data.Season = { Id = Season.Id, XP = 0, Tier = 1, Premium = true }
+	QuestService.seasonXp(data, 10)
+	assert(data.Season.Premium == true, "premium for this season lost")
+	Season.StartsAt, Season.EndsAt = s0, e0
+	data.Season = { Id = "", XP = 0, Tier = 1, Premium = false }
+	-- starter trunk + season pass receipts set their flags
+	local Granted = roblox.Enum.ProductPurchaseDecision.PurchaseGranted
+	Monetization.Products.StarterPack.id = 333
+	Monetization.Products.SeasonWinter.id = 444
+	assert(ShopService.processReceipt({ PlayerId = 4242, ProductId = 333, PurchaseId = "r-s1" }) == Granted, "starter receipt")
+	assert(data.StarterPackBought and data.Owned.mask_starter and human:GetAttribute("StarterPackBought") == true, "starter flag")
+	assert(ShopService.processReceipt({ PlayerId = 4242, ProductId = 444, PurchaseId = "r-s2" }) == Granted, "season receipt")
+	assert(data.Season.Premium and data.Season.Id == Season.Id, "season premium flag")
+	Monetization.Products.StarterPack.id = 0
+	Monetization.Products.SeasonWinter.id = 0
+	data.StarterPackBought = false
+	data.Season = { Id = "", XP = 0, Tier = 1, Premium = false }
+	DataService.publish(human)
+	-- manor events: timed dials set and expire; Power Surge outside a grid night falls back
+	local nk = workspace:GetAttribute("CM_NightKind")
+	workspace:SetAttribute("CM_NightKind", "finale")
+	EventService._fire("PowerSurge")
+	assert(workspace:GetAttribute("CM_Event") == "DeepDark" and workspace:GetAttribute("CM_EventDrain"), "power surge on the finale")
+	EventService._fire("ClockworkRush")
+	assert(workspace:GetAttribute("CM_EventSpeed") == 1.15, "clockwork rush speed")
+	EventService._fire("RumorMill") -- no clue: warning toast, no error
+	EventService._clearMods()
+	assert(workspace:GetAttribute("CM_EventDrain") == nil and workspace:GetAttribute("CM_EventSpeed") == nil, "event dials not cleared")
+	workspace:SetAttribute("CM_NightKind", nk)
+end)
+
 -- Bot-only 3-night matches at the real timings (speed-true walking, routes through doors,
 -- stairs and the lift; no wall collision). BAL_ROUNDS=n runs a longer balance sim.
 local BAL_ROUNDS = tonumber(process.env.BAL_ROUNDS or "") or 6
@@ -1603,7 +1687,7 @@ step("client HUD states: lobby menu, guest day/night (hotbar, gadget), floor bad
 	localPlayer:SetAttribute("GearTokens", 120)
 	Hud.update()
 	assert(string.find(el.RoleChip.Text.Text, "LV 3"), "lobby chip " .. el.RoleChip.Text.Text)
-	assert(el.MenuShop.Visible and el.MenuClass.Visible and el.MenuSettings.Visible, "lobby menu")
+	assert(el.MenuShop.Visible and el.MenuClass.Visible and el.MenuQuests.Visible and el.MenuSettings.Visible, "lobby menu")
 	assert(not el.Button1.Visible, "buttons in lobby")
 	localPlayer:SetAttribute("InMatch", true)
 	localPlayer:SetAttribute("PState", "Guest")
@@ -1798,7 +1882,10 @@ step("menus with a gamepad: shop / class / settings / vote / items open, first b
 	localPlayer:SetAttribute("Class", "Mechanist")
 	local GuiService = game:GetService("GuiService")
 	localPlayer:SetAttribute("DryCell", 1)
-	for _, kind in { "Shop", "Class", "Settings", "Items" } do
+	localPlayer:SetAttribute("QuestDaily", "daily_play:1/1:1|daily_chests:2/4:0|daily_repair:0/2:0")
+	localPlayer:SetAttribute("QuestWeekly", "weekly_matches:3/6:0|weekly_win:0/2:0")
+	localPlayer:SetAttribute("Season", ":1:0")
+	for _, kind in { "Shop", "Class", "Settings", "Items", "Quests" } do
 		Menus.open(kind)
 		local f = Menus.frame()
 		assert(f.Visible and ClientState.panel == kind, kind .. " did not open")
@@ -1831,6 +1918,27 @@ step("menus with a gamepad: shop / class / settings / vote / items open, first b
 	end
 	assert(count == #Cosmetics.ofKind("Mask"), "mask tab lists " .. count)
 	Menus.close()
+	-- v1.2: quests panel rows (5 quests) + live refresh on a mirror change; starter/season hidden
+	Menus.open("Quests")
+	local rowsN = 0
+	for _, d in Menus.frame():GetDescendants() do
+		if d:IsA("TextButton") and string.sub(d.Name, 1, 6) == "Quest_" then
+			rowsN += 1
+		end
+	end
+	assert(rowsN == 5, "quest rows " .. rowsN)
+	localPlayer:SetAttribute("QuestDaily", "daily_play:1/1:1|daily_chests:4/4:1|daily_repair:0/2:0")
+	Menus._refreshQuests()
+	taskLib.wait(0.05)
+	local doneRow = Menus.frame():FindFirstChild("Quest_daily_chests", true)
+	assert(ClientState.panel == "Quests" and doneRow and string.find(doneRow.Text, "4/4", 1, true), "quest panel did not live-refresh")
+	Menus.close()
+	assert(Menus.robuxHidden("SeasonWinter"), "season pass offered while no season is scheduled")
+	localPlayer:SetAttribute("StarterPackBought", false)
+	assert(not Menus.robuxHidden("StarterPack"), "starter hidden before purchase")
+	localPlayer:SetAttribute("StarterPackBought", true)
+	assert(Menus.robuxHidden("StarterPack"), "starter offered after purchase")
+	localPlayer:SetAttribute("StarterPackBought", false)
 	-- vote panel lists everyone in the match (bots too), never yourself
 	local botsFolder = workspace:FindFirstChild("Bots") or Instance.new("Folder")
 	botsFolder.Name = "Bots"

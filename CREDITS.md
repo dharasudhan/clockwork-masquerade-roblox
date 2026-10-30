@@ -80,3 +80,14 @@ anything adopted later gets a row here with its creator and asset id.
 
 Store icon / thumbnail concepts in `../store/` were generated for Ottran Studios with an image model (Oct 29 2026);
 they are concepts, not final art.
+
+## v1.1 / v1.2 systems (Oct 30 2026) — ideas compared, no code copied
+
+Quests, the season track, manor events and Rising Storm escalation are written from scratch for this repo. Before
+integrating them we compared approaches in:
+- **prooheckcp/RoQuest** (Apache-2.0) — Roblox quest framework: server-owned quest state, objective counters per stat,
+  daily/weekly resets. Our `Logic/Quests` keeps the same "stat → counter → complete once" shape, but deterministic
+  per-day rotation instead of per-player random rolls.
+- **oh-ashen-one/roblox-infected** (MIT) — Rojo/Lune round game with pure, unit-tested quest and season-pass cores on
+  ProfileStore; confirmed the "pure logic + Lune specs + per-season save slot" structure.
+Nothing from either repository is included.

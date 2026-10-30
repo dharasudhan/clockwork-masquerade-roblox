@@ -13,6 +13,12 @@ Secular 1920s inventor / steampunk-neon look, family-safe, **no ghosts** (delibe
 > console safe area + portrait HUD, skippable 7-shot intro + guided first match. Bot-only balance: **44 % guest wins**.
 > Store kit + Murali's release checklist: `../store/` (`RELEASE-CHECKLIST.md`). Credits: `CREDITS.md`.
 
+> **v1.2 (Oct 30 2026)** — merged from branch `upgrade/v1.2` (see `docs/UPGRADE-NOTES.md`): v1.1 monetization rework
+> (4 passes / 9 products, all ids **0**), daily/weekly quests + co-play ×1.1 + friend quest, Season 1 track (inactive
+> while `Season.StartsAt == 0`), bot Phantom cover acts, save v3 (v2 migrates on load), Quests panel; v1.2 Rising
+> Storm escalation, Dawn Rush, Last Stand, manor events, witness tells, Grazed near-miss. Bot-only balance (30 matches):
+> **47 % guest wins**. Build label `v1.2`.
+
 ## Streaming + performance budget (v1.0 RC)
 
 `Workspace.StreamingEnabled = true` (both project files): **StreamingTargetRadius 256**, **StreamingMinRadius 96**,
@@ -175,6 +181,11 @@ Max Players **10**; Enable Studio Access to API Services (to test saves in Studi
 until Gate 6; rename the experience from "GhostMansionTest" when Murali wants.
 
 ## Status
+
+**Oct 30 2026 — v1.2**: local 88/88 specs, place verify 56/56, engine smoke 0 failures (incl. v1.1/v1.2 step:
+v2→v3 migration, quests, season, starter/season receipts, manor events; Quests panel gamepad + live refresh);
+balance 30 bot matches 14/30 = 47 % guest wins. Cloud (universe 10773325724 only): 89/89 specs, boot OK (v1.2),
+real-engine bot match OK, audio 25/25. Layout mock-ups from the real rects: `../shots/v1.2/`.
 
 **Oct 29 2026 — v1.0 RC**: StreamingEnabled + Persistent interactables, CREDITS, store kit; local 72/72 specs,
 engine smoke 0 failures. Cloud (Open Cloud Luau Execution, universe 10773325724 only): 73/73 specs, boot OK

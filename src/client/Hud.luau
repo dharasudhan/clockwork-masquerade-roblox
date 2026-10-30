@@ -152,7 +152,7 @@ local function setGlyph(chip: Frame, action: string?)
 	chip.Visible = text ~= nil
 	if text then
 		local img = chip:FindFirstChild("Image") :: ImageLabel
-		local hasImg = type(image) == "string" and image ~= ""
+		hasImg = type(image) == "string" and image ~= ""
 		img.Visible = hasImg
 		img.Image = if hasImg then image :: string else ""
 		;(chip:FindFirstChild("Text") :: TextLabel).Text = if hasImg then "" else text
@@ -580,6 +580,9 @@ function Hud.buttonsFor(phase: string, who: string?, attrs, selected: string?): 
 end
 
 function Hud.objective(phase: string, who: string?): string
+	if phase == "Intro" then
+		return "The doors of the manor are opening..." -- v1.5.2: lobby -> match cinematic
+	end
 	if phase == "Lobby" then
 		return "The masquerade begins soon - bots fill up to 6 guests"
 	elseif phase == "Results" then

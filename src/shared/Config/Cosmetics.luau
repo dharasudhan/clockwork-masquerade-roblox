@@ -3,8 +3,9 @@
 -- colour), Trail (sparkle trail while you are an Electro-Wisp), Emote (a short particle burst +
 -- emoji above your head). How each is unlocked:
 --   free = owned from the start · level = unlocks at that level · tokens = bought with Gear
---   Tokens (earned by playing) · daily = the 7-day login streak reward · product/pass = Robux
---   (Config/Monetization; placeholder ids until Gate 4/5).
+--   Tokens (earned by playing) · daily = the 7-day login streak reward · seasonTier = the
+--   season track (Config/Season; Logic/Season) · product/pass = Robux (Config/Monetization;
+--   placeholder ids until Gate 4/5).
 local Cosmetics = {}
 
 Cosmetics.Kinds = { "Mask", "Lantern", "Trail", "Emote" }
@@ -20,6 +21,11 @@ Cosmetics.Items = {
 	{ id = "mask_aurora", kind = "Mask", name = "Aurora Prism", color = "Violet", daily = 7 },
 	{ id = "mask_gold_vip", kind = "Mask", name = "Golden Inventor (VIP)", color = "Gold", pass = "VIP" },
 	{ id = "mask_neon_pack", kind = "Mask", name = "Neon Carnival", color = "Pink", product = "MaskPackNeon" },
+	-- v1.1: passes + starter + season
+	{ id = "mask_founder", kind = "Mask", name = "Founder Clockwork (Sterling Founder)", color = "Gold", pass = "VIPPlus" },
+	{ id = "mask_host_laurel", kind = "Mask", name = "Host Laurel (Masquerade Host)", color = "Emerald", pass = "Host" },
+	{ id = "mask_starter", kind = "Mask", name = "Guest's Welcome Mask", color = "Copper", product = "StarterPack" },
+	{ id = "mask_frost", kind = "Mask", name = "Frost Filigree (Winter Masquerade)", color = "SkyBlue", seasonTier = 2 },
 	-- lanterns
 	{ id = "lantern_brass", kind = "Lantern", name = "Brass Lantern", color = "Brass", beam = "Warm", free = true },
 	{ id = "lantern_copper", kind = "Lantern", name = "Copper Lantern", color = "Copper", beam = "Amber", level = 3 },
@@ -27,12 +33,16 @@ Cosmetics.Items = {
 	{ id = "lantern_moon", kind = "Lantern", name = "Moonbeam", color = "Silver", beam = "SkyBlue", tokens = 450 },
 	{ id = "lantern_gold_vip", kind = "Lantern", name = "Golden Lantern (VIP)", color = "Gold", beam = "Gold", pass = "VIP" },
 	{ id = "lantern_ember", kind = "Lantern", name = "Ember Lantern", color = "Charcoal", beam = "Crimson", product = "LanternPackEmber" },
+	{ id = "lantern_starter", kind = "Lantern", name = "Guest's Lamp", color = "Copper", beam = "Amber", product = "StarterPack" },
+	{ id = "lantern_northern", kind = "Lantern", name = "Northern Lights (Winter Masquerade)", color = "TealDeep", beam = "TealNeon", seasonTier = 4 },
 	-- wisp trails
 	{ id = "trail_spark", kind = "Trail", name = "Spark Trail", color = "Wisp", free = true },
 	{ id = "trail_violet", kind = "Trail", name = "Violet Trail", color = "VioletNeon", level = 4 },
 	{ id = "trail_gold", kind = "Trail", name = "Gold Dust", color = "Gold", tokens = 200 },
 	{ id = "trail_rainbow", kind = "Trail", name = "Rainbow Gears", color = "Pink", product = "TrailPackRainbow" },
 	{ id = "trail_vip", kind = "Trail", name = "Inventor's Comet (VIP)", color = "Amber", pass = "VIP" },
+	{ id = "trail_founder", kind = "Trail", name = "Founder's Halo (Sterling Founder)", color = "Gold", pass = "VIPPlus" },
+	{ id = "trail_snowfall", kind = "Trail", name = "Snowfall (Winter Masquerade)", color = "Silver", seasonTier = 6 },
 	-- emotes
 	{ id = "emote_wave", kind = "Emote", name = "Wave", icon = "👋", color = "Cream2", free = true },
 	{ id = "emote_bow", kind = "Emote", name = "Bow", icon = "🎩", color = "Brass", level = 2 },
@@ -40,6 +50,9 @@ Cosmetics.Items = {
 	{ id = "emote_sparkle", kind = "Emote", name = "Sparkle", icon = "✨", color = "Amber", level = 6 },
 	{ id = "emote_confetti", kind = "Emote", name = "Confetti", icon = "🎉", color = "Pink", product = "EmotePackParty" },
 	{ id = "emote_dance", kind = "Emote", name = "Clockwork Dance", icon = "🕺", color = "TealNeon", product = "EmotePackParty" },
+	{ id = "emote_founder", kind = "Emote", name = "Founder Salute", icon = "⚜️", color = "Gold", pass = "VIPPlus" },
+	{ id = "emote_whistle", kind = "Emote", name = "Party Whistle (Masquerade Host)", icon = "🎺", color = "Brass", pass = "Host" },
+	{ id = "emote_gift", kind = "Emote", name = "Gift Box (Winter Masquerade)", icon = "🎁", color = "Rose", seasonTier = 8 },
 }
 
 Cosmetics.Defaults = { Mask = "mask_brass", Lantern = "lantern_brass", Trail = "trail_spark", Emote = "emote_wave" }

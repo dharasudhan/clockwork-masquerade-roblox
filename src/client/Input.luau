@@ -8,6 +8,7 @@
 --   slot1-9  1..9                            pick a hotbar slot directly
 --   info     I / D-pad up                    items panel (what each item does)
 --   menu     M / D-pad down                  shop / class / settings
+--   score    Tab / L3 (v1.6.1)               mid-match scoreboard (role-safe standings)
 --   legacy   C dry-cell, Z flicker, X slick, LT (L2) lantern
 -- Interact stays on Roblox's ProximityPrompt keys (E on keyboard, X on gamepad).
 -- Button-prompt glyphs: Input.glyph(action) returns the label (and on gamepad the Roblox glyph
@@ -29,16 +30,17 @@ Input.Bindings = {
 	next = { K.E, K.ButtonR1, K.DPadRight },
 	info = { K.I, K.DPadUp },
 	menu = { K.M, K.DPadDown },
+	score = { K.Tab, K.ButtonL3 },
 	cell = { K.C },
 	flicker = { K.Z },
 	slick = { K.X },
 	lantern = { K.ButtonL2 },
 }
-Input.Order = { "primary", "use", "gadget", "prev", "next", "info", "menu", "cell", "flicker", "slick", "lantern" }
+Input.Order = { "primary", "use", "gadget", "prev", "next", "info", "menu", "score", "cell", "flicker", "slick", "lantern" }
 local SlotKeys = { K.One, K.Two, K.Three, K.Four, K.Five, K.Six, K.Seven, K.Eight, K.Nine }
 
-local GamepadText = { primary = "RT", use = "Y", gadget = "B", prev = "LB", next = "RB", info = "▲", menu = "▼", lantern = "LT", interact = "X" }
-local KeyText = { primary = "F", use = "V", gadget = "G", prev = "Q", next = "E", info = "I", menu = "M", lantern = "F", interact = "E" }
+local GamepadText = { primary = "RT", use = "Y", gadget = "B", prev = "LB", next = "RB", info = "▲", menu = "▼", score = "L3", lantern = "LT", interact = "X" }
+local KeyText = { primary = "F", use = "V", gadget = "G", prev = "Q", next = "E", info = "I", menu = "M", score = "TAB", lantern = "F", interact = "E" }
 local GamepadKey = { primary = K.ButtonR2, use = K.ButtonY, gadget = K.ButtonB, prev = K.ButtonL1, next = K.ButtonR1, info = K.DPadUp, menu = K.DPadDown, lantern = K.ButtonL2, interact = K.ButtonX }
 
 local handler: ((string, any?) -> ())? = nil

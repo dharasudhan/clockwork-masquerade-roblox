@@ -305,7 +305,7 @@ RunService.Heartbeat:Connect(function(dt)
 	end
 	if uiAccum >= 0.1 then
 		uiAccum = 0
-		Hudeupdate = nil
+		Hud.update()
 		Guide.update()
 		syncHeld()
 	end

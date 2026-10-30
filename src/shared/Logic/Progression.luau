@@ -58,6 +58,10 @@ function Progression.owns(c, data, passes: { [string]: boolean }?): boolean
 	if c.level and (data.Level or 1) >= c.level then
 		return true
 	end
+	-- v1.3: premium track items need the season pass; the tier check below still applies
+	if c.seasonPremium and not (data.Season and data.Season.Premium) then
+		return false
+	end
 	if c.seasonTier and (data.Season and data.Season.Tier or 0) >= c.seasonTier then
 		return true
 	end

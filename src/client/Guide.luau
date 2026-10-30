@@ -103,7 +103,7 @@ function Guide.pick(ctx): { icon: string, text: string, sub: string?, arrow: boo
 		return { icon = "🗝️", text = "Find a golden key!", sub = "Follow the arrow", arrow = true }
 	end
 	if (ctx.pages or 0) > 0 then
-		return { icon = "📜", text = "Take the page to the Projector!", sub = "In the Library", arrow = true }
+		return { icon = "📜", text = "Take the page to the Projector!", sub = "In the Royal Library", arrow = true }
 	end
 	if ctx.tripped and not ctx.repaired then
 		return { icon = "🔧", text = "Fix the RED breaker!", sub = "Follow the arrow, then hold E", arrow = true }

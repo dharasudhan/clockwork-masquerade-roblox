@@ -1,4 +1,4 @@
--- Levels, daily streak and shop rules (pure).
+-- Levels, daily streak, season track and shop rules (pure).
 local Progression = {}
 
 function Progression.xpToNext(level: number, cfg): number
@@ -45,7 +45,7 @@ function Progression.canBuy(c, data): (boolean, string?)
 	if (data.GearTokens or 0) < c.tokens then
 		return false, "tokens"
 	end
-	return true
+	return true, nil
 end
 
 function Progression.owns(c, data, passes: { [string]: boolean }?): boolean
@@ -56,6 +56,9 @@ function Progression.owns(c, data, passes: { [string]: boolean }?): boolean
 		return true
 	end
 	if c.level and (data.Level or 1) >= c.level then
+		return true
+	end
+	if c.seasonTier and (data.Season and data.Season.Tier or 0) >= c.seasonTier then
 		return true
 	end
 	if c.pass and passes and passes[c.pass] then

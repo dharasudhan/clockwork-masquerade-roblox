@@ -2,11 +2,15 @@
 -- across all Phantoms), cooperative guest repair at night (stationary; copper wire halves the time
 -- and is used up, a brass wrench makes it 40% faster), the reboot meter. A tamper stays hidden
 -- until night falls; then the breaker trips (red light, sparks).
+-- v1.2 (engagement pass): the reboot rate carries night escalation (CM_RebootBoost) and the
+-- Dawn Rush surge past 80% (Logic/Escalation); boostReboot() jumps the meter for events.
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Grid = require(Shared.Logic.Grid)
 local Channel = require(Shared.Logic.Channel)
 local Items = require(Shared.Config.Items)
 local Gadgets = require(Shared.Config.Gadgets)
+local EscCfg = require(Shared.Config.Escalation)
+local Escalation = require(Shared.Logic.Escalation)
 local Build = require(script.Parent.Build)
 local Participants = require(script.Parent.Participants)
 local ManorBuilder = require(script.Parent.ManorBuilder)
@@ -251,6 +255,16 @@ function GridService.nightFalls()
 	return tripped
 end
 
+-- v1.2: jump the reboot meter (manor events). Server-authoritative, clamped to 100%.
+function GridService.boostReboot(fraction: number)
+	if state == nil then
+		return
+	end
+	state.reboot = math.min(1, (state.reboot or 0) + math.max(0, fraction))
+	workspace:SetAttribute("CM_Reboot", state.reboot)
+	visuals()
+end
+
 function GridService.step(dt: number)
 	if state == nil then
 		return
@@ -331,7 +345,9 @@ function GridService.step(dt: number)
 				end
 			end
 		end
-		Grid.stepReboot(state, dt, night.rebootFullSeconds)
+		-- v1.2: reboot rate = base rate x night escalation x Dawn Rush (past Rush.rebootAt)
+		local rateBoost = (workspace:GetAttribute("CM_RebootBoost") or 1) * Escalation.rushBoost(EscCfg, state.reboot)
+		Grid.stepReboot(state, dt, night.rebootFullSeconds / rateBoost)
 		workspace:SetAttribute("CM_Reboot", state.reboot)
 		local still = {}
 		for _, id in state.order do

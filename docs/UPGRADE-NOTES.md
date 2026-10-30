@@ -1,5 +1,7 @@
 # Clockwork Masquerade — v1.4 session intro (Oct 30, 2026)
 
+## Every-session story intro
+
 - The story intro now plays at the START OF EVERY SESSION (was: first visit only).
 - Still fully skippable on every device: SKIP button, Space / Backspace, gamepad A / B —
   gamepad focus lands on the SKIP button.
@@ -13,6 +15,30 @@
   center (it also re-teaches the witness-tell after updates).
 - One-line revert: in `init.client.luau`, restore the `IntroSeen == false` gate in the
   `introChecked` block.
+
+## Deduction leaks fixed (the Phantom was guessable)
+
+Two information leaks made the human Phantom identifiable, so the Expose vote was
+degenerating into elimination:
+
+- **Nametag on the transformed Phantom.** The night monster kept the humanoid's floating
+  name — a name over the Phantom literally named its account. New `ChaseService.setNameShown`
+  hides the nametag at `nightFalls` (both flavours: the Humanoid default tag via
+  `DisplayDistanceType = None`, and the bot `NameTag` billboard via `Enabled = false`), and
+  restores it at dawn (disguise back on), on `reapply` (respawn), and on match `reset` —
+  a hidden name can never leak into the next match.
+- **Bots labelled `[BOT]` in-world.** In-world bots read `Name [BOT]` while the vote panel
+  listed plain names, so guests cleared every bot from suspicion and the human Phantom was
+  the only candidate left by elimination. Bot nametags now show the plain name, exactly
+  like human guests. The `IsBot` model attribute stays (server logic only, replicated but
+  never rendered) — no brain, vote or stats behaviour changes.
+
+Names stay visible for everyone by day: daytime accusations, the vote panel and the
+witness-tell all need referable identity, and a name over a guest is not a leak — it
+becomes one only when that character transforms.
+
+Known side effect (intended): guests can now "waste" Expose votes on bots, which is
+healthy misdirection — bot suspicion is a feature, not a bug.
 
 ---
 

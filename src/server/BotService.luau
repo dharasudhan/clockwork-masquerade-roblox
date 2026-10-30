@@ -4,6 +4,9 @@
 -- holds for them too. Brains are pure (Logic/BotBrain); movement walks room to room through
 -- doors, up stair flights and by service lift (Logic/ManorLayout.route) with Humanoid:MoveTo and
 -- hops to the next waypoint when stuck (Luau Execution sessions do not step physics). Bots never save anything.
+-- v1.4: bots are NO LONGER labelled "[BOT]" on their nametag - in-world they must read exactly
+-- like human guests, or guests clear every bot from suspicion and the human Phantom is
+-- guessable by elimination. The IsBot attribute stays for server logic.
 local Players = game:GetService("Players")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Cfg = require(Shared.Config.Bots)
@@ -92,7 +95,8 @@ local function simpleRig(name: string, look): Model
 	label.TextScaled = true
 	label.TextColor3 = Color3.new(1, 1, 1)
 	label.TextStrokeTransparency = 0.3
-	label.Text = name .. " [BOT]"
+	-- v1.4: plain name only - no "[BOT]" (bots must read as guests; IsBot attr is server-side)
+	label.Text = name
 	label.Parent = tag
 	return model
 end
@@ -112,7 +116,8 @@ local function buildRig(name: string, look): Model
 		local m = model :: Model
 		m.Name = name
 		local h = m:FindFirstChildOfClass("Humanoid") :: Humanoid
-		h.DisplayName = name .. " [BOT]"
+		-- v1.4: plain name only - no "[BOT]" suffix (see header)
+		h.DisplayName = name
 		h.WalkSpeed = Gadgets.Guest.walkSpeed
 		return m
 	end

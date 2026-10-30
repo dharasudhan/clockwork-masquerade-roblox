@@ -1,4 +1,4 @@
--- Sterling Manor (pure data), v1.0 layout: 5 levels a player obviously walks between:
+-- Sterling Manor - now "Castle Sterling" (pure data), v1.0 layout: 5 levels a player obviously walks between:
 --   B1 Boiler Level (-1)  ·  Ground (0)  ·  1st Floor (1)  ·  2nd Floor / Attic (2)  ·  Tower (3)
 -- connected by two grand stairs (G<->1F), the Cellar Stair (G<->B1, opens off the Foyer right by
 -- the front door), the Service Stair (G<->B1), the Attic Stair (1F<->2F), the Tower Stair
@@ -31,11 +31,11 @@ Manor.Rooms = {
 	{ id = "northHall", name = "North Corridor", level = 0, x0 = -30, x1 = 30, z0 = -42, z1 = -30, lights = 2, theme = "corridor" },
 	{ id = "westHall", name = "West Corridor", level = 0, x0 = -42, x1 = -30, z0 = -42, z1 = 60, lights = 4, chests = 1, theme = "corridor" },
 	{ id = "eastHall", name = "East Corridor", level = 0, x0 = 30, x1 = 42, z0 = -42, z1 = 60, lights = 4, chests = 1, theme = "corridor" },
-	{ id = "library", name = "Library", level = 0, x0 = -90, x1 = -42, z0 = -42, z1 = -6, lights = 2, chests = 2, theme = "library" },
+	{ id = "library", name = "Royal Library", level = 0, x0 = -90, x1 = -42, z0 = -42, z1 = -6, lights = 2, chests = 2, theme = "library" },
 	{ id = "billiard", name = "Billiard Room", level = 0, x0 = -90, x1 = -60, z0 = -6, z1 = 34, lights = 1, chests = 1, theme = "billiard" },
-	{ id = "musicRoom", name = "Music Room", level = 0, x0 = -90, x1 = -42, z0 = 34, z1 = 66, lights = 2, chests = 1, theme = "music" },
+	{ id = "musicRoom", name = "Minstrel Hall", level = 0, x0 = -90, x1 = -42, z0 = 34, z1 = 66, lights = 2, chests = 1, theme = "music" },
 	{ id = "laboratory", name = "Inventor's Laboratory", level = 0, x0 = 42, x1 = 90, z0 = -42, z1 = -6, lights = 2, chests = 1, theme = "lab" },
-	{ id = "diningHall", name = "Dining Hall", level = 0, x0 = 60, x1 = 90, z0 = -6, z1 = 34, lights = 2, chests = 1, theme = "dining" },
+	{ id = "diningHall", name = "Banquet Hall", level = 0, x0 = 60, x1 = 90, z0 = -6, z1 = 34, lights = 2, chests = 1, theme = "dining" },
 	{ id = "kitchen", name = "Kitchen", level = 0, x0 = 42, x1 = 90, z0 = 34, z1 = 66, lights = 2, chests = 2, theme = "kitchen" },
 	{ id = "mapRoom", name = "Map Room", level = 0, x0 = -42, x1 = -12, z0 = -72, z1 = -42, lights = 1, chests = 1, theme = "maps" },
 	{ id = "clockWorkshop", name = "Clock Workshop", level = 0, x0 = -12, x1 = 12, z0 = -72, z1 = -42, lights = 1, chests = 1, theme = "clockShop" },
@@ -65,7 +65,7 @@ Manor.Rooms = {
 	{ id = "guestWest", name = "Rose Guest Suite", level = 1, x0 = -90, x1 = -42, z0 = -42, z1 = -6, lights = 2, chests = 2, theme = "suiteRose" },
 	{ id = "guestEast", name = "Azure Guest Suite", level = 1, x0 = 42, x1 = 90, z0 = -42, z1 = -6, lights = 2, chests = 2, theme = "suiteAzure" },
 	{ id = "atticStair", name = "Attic Stair", level = 1, span = 2, x0 = -90, x1 = -60, z0 = -6, z1 = 34, lights = 1, stair = { up = "N" }, theme = "atticStair" },
-	{ id = "trophy", name = "Trophy Room", level = 1, x0 = 60, x1 = 90, z0 = -6, z1 = 34, lights = 1, chests = 1, theme = "trophy" },
+	{ id = "trophy", name = "Armory", level = 1, x0 = 60, x1 = 90, z0 = -6, z1 = 34, lights = 1, chests = 1, theme = "trophy" },
 	{ id = "teaSalon", name = "Tea Salon", level = 1, x0 = -90, x1 = -30, z0 = 34, z1 = 66, lights = 2, chests = 2, theme = "tea" },
 	{ id = "mezzanine", name = "Clock Mezzanine", level = 1, x0 = -30, x1 = 30, z0 = 30, z1 = 60, lights = 2, chests = 1, theme = "mezzanine" },
 	{ id = "linen", name = "Linen Room", level = 1, x0 = 30, x1 = 90, z0 = 34, z1 = 66, lights = 2, chests = 1, theme = "linen" },
@@ -90,6 +90,19 @@ Manor.Rooms = {
 	{ id = "coalStore", name = "Coal Store", level = -1, x0 = -42, x1 = 12, z0 = 30, z1 = 54, lights = 2, chests = 2, theme = "coal" },
 	{ id = "pumpRoom", name = "Pump Room", level = -1, x0 = 30, x1 = 42, z0 = 30, z1 = 54, lights = 1, chests = 1, theme = "pump" },
 	{ id = "laundry", name = "Laundry", level = -1, x0 = 42, x1 = 90, z0 = 30, z1 = 66, lights = 2, chests = 1, theme = "laundry" },
+	-- v1.6.2 Grotto Baths: the castle's swimming pool, under the east lawn (the grass slabs
+	-- above already seal it invisibly; two archways in from the Coal Store, no dead-end).
+	{ id = "grotto", name = "Grotto Baths", level = -1, x0 = -42, x1 = 12, z0 = 54, z1 = 78, lights = 2, chests = 1, theme = "grotto" },
+}
+
+-- v1.6.2: water hazards - Dawn Scatter spots must never land in the pool (Logic/Scatter reads
+-- these as avoid points; radius from the pool centre covers the whole basin + rim).
+-- v1.6 review (Hark): hx/hz = the basin's half-size (ManorDecor Kits.grotto draws it from these;
+-- the rim adds 0.6). The basin is a shallow wading pool: the rim and water are non-colliding
+-- decor like every other furnishing, so nobody (bot or player) can get stuck in it. r = 16
+-- covers the basin + rim (corner at 11.6, 7.1 -> 13.6) with margin.
+Manor.Pools = {
+	{ room = "grotto", x = -21, z = 66, r = 16, hx = 11, hz = 6.5 },
 }
 
 Manor.Doors = {
@@ -178,6 +191,11 @@ Manor.Doors = {
 	{ a = "pumpRoom", b = "laundry", at = 42, width = 8 },
 	{ a = "generator", b = "laundry", at = 66, width = 8 },
 	{ a = "laundry", b = "liftB", at = 48, width = 8 },
+	-- v1.6.2: two 8-stud archways into the Grotto Baths (two escape points, no dead-end - the
+	-- Tower scatter lesson). A cellarStair door was tried and dropped: its posts landed
+	-- coplanar with the stairwell's top-landing fill and the doorway opened into solid fill.
+	{ a = "coalStore", b = "grotto", at = -30, width = 8 },
+	{ a = "coalStore", b = "grotto", at = 0, width = 8 },
 }
 
 -- Breaker terminals (6, spread over B1 / G / 1F / 2F / Tower; each night uses 5 of them): the

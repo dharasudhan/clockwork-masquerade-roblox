@@ -15,6 +15,11 @@
 -- dawn interlude ends the clock strikes - every client fades to black (+ chime), and while the
 -- screen is black the Phantoms' shroud comes off and EVERY participant is moved to a random safe
 -- spot in a different room on a spread of floors (Logic/Scatter), then the screen fades back in.
+-- v1.6.1: the mid-match scoreboard (workspace attribute CM_Score, Logic/Score - role-safe:
+-- repairs only revealed at Results) and the Hall of Fame (FameService.record at match end).
+-- v1.5.2: the story intro moved to the DOORS - a new Intro phase between Lobby and Day 1. Every
+-- client in the lobby plays it (full cinematic the first match of the session, a 3 s title card
+-- after that); the round starts when every present client has acked or IntroSeconds runs out.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
@@ -31,6 +36,7 @@ local Outcome = require(Shared.Logic.Outcome)
 local Rewards = require(Shared.Logic.Rewards)
 local Escalation = require(Shared.Logic.Escalation)
 local Scatter = require(Shared.Logic.Scatter)
+local Score = require(Shared.Logic.Score)
 local Participants = require(script.Parent.Participants)
 local ChestService = require(script.Parent.ChestService)
 local GridService = require(script.Parent.GridService)
@@ -49,6 +55,7 @@ local AbilityService = require(script.Parent.AbilityService)
 local ShopService = require(script.Parent.ShopService)
 local QuestService = require(script.Parent.QuestService)
 local EventService = require(script.Parent.EventService)
+local FameService = require(script.Parent.FameService)
 local Clock = require(script.Parent.Clock)
 local Net = require(script.Parent.Net)
 
@@ -83,8 +90,16 @@ local function setPhase(phase: string, seconds: number)
 	table.insert(history, phase)
 end
 
+-- v1.6.1 scoreboard: one workspace attribute, refreshed at most once a second in a match
+local scoreAt = 0
+local function publishScore(reveal: boolean?)
+	workspace:SetAttribute(Score.Attribute, Score.encode(Score.entriesFor(Participants.all(), reveal)))
+end
+MatchService._publishScore = publishScore
+
 local function startLobby()
 	LightingService.apply("Lobby")
+	workspace:SetAttribute(Score.Attribute, "")
 	workspace:SetAttribute("CM_Winner", nil)
 	workspace:SetAttribute("CM_Reason", nil)
 	workspace:SetAttribute("CM_Reboot", 0)
@@ -93,6 +108,23 @@ local function startLobby()
 	workspace:SetAttribute("CM_NightsWon", 0)
 	workspace:SetAttribute("CM_NightResults", "")
 	setPhase("Lobby", secs("lobby", Match.LobbySeconds))
+end
+
+-- ---- v1.5.2 Intro at the doors ---------------------------------------------------------------
+-- The story intro plays between the lobby and Day 1. Only the players who were in the lobby
+-- when the doors open are expected to ack; the round starts when all of them have (watched or
+-- skipped) or IntroSeconds runs out, so a stuck or slow client never holds the match hostage.
+local introAcked: { [number]: boolean } = {}
+local introAudience: { [number]: boolean } = {}
+
+local function startIntro()
+	table.clear(introAcked)
+	table.clear(introAudience)
+	for _, pl in Players:GetPlayers() do
+		introAudience[pl.UserId] = true
+	end
+	setPhase("Intro", secs("intro", Match.IntroSeconds))
+	Net.sendAll({ kind = "intro", seconds = Match.IntroSeconds })
 end
 
 local function spawnPoint(i: number, n: number): CFrame
@@ -214,6 +246,17 @@ local function clockStrike()
 	Net.sfx("all", "ClockStrike")
 end
 
+-- v1.6.3: a cosmetic bought at night / dawn is worn from the dawn swap on (never over the
+-- night shroud; ShopService.safeToDress)
+local function dressPending()
+	for _, p in Participants.all() do
+		if p.dressPending then
+			p.dressPending = nil
+			ShopService.dress(p)
+		end
+	end
+end
+
 -- while black: shroud off / disguises on / Wisps wake (ChaseService.dawn), everyone scattered
 local function dawnSwap()
 	if state.swapped then
@@ -221,6 +264,7 @@ local function dawnSwap()
 	end
 	state.swapped = true
 	ChaseService.dawn()
+	dressPending()
 	local plan = if scatterEnabled then (state.scatterPlan or planScatter()) else {}
 	state.scatterPlan = nil
 	local moved = 0
@@ -252,6 +296,7 @@ local function beginDay(orderIdx: number)
 		-- blackout with the scatter; a dawn too short for the strike swaps here)
 		dawnSwap()
 		ChaseService.dawn()
+		dressPending()
 		ItemService.reset()
 		AbilityService.reset()
 	end
@@ -351,6 +396,7 @@ local function startRound()
 	for _, p in Participants.all() do
 		tellRole(p)
 	end
+	publishScore(false)
 	workspace:SetAttribute("CM_Match", state.match)
 end
 
@@ -463,6 +509,13 @@ local function endRound(result)
 			Net.sfx(p.player, if won then "Win" else "Lose")
 		end
 	end
+	-- v1.6.1: final standings (repairs revealed - Results shows every role) + Hall of Fame
+	publishScore(true)
+	for _, p in Participants.all() do
+		if p.player then
+			task.spawn(FameService.record, p.player)
+		end
+	end
 	setPhase("Results", secs("results", Match.ResultsSeconds))
 end
 
@@ -509,9 +562,24 @@ function MatchService.step(dt: number)
 	local now = Clock.now()
 	if state.phase == "Lobby" then
 		if now >= state.endsAt then
+			startIntro()
+		end
+	elseif state.phase == "Intro" then
+		local pending = false
+		for uid in introAudience do
+			if not introAcked[uid] then
+				pending = true
+				break
+			end
+		end
+		if not pending or now >= state.endsAt then
 			startRound()
 		end
 	elseif state.phase == "Day" or state.phase == "Night" then
+		if now - scoreAt >= 1 then
+			scoreAt = now
+			publishScore(false)
+		end
 		BotService.step(dt)
 		GridService.step(dt)
 		LanternService.step(dt)
@@ -606,6 +674,10 @@ local function onAction(player: Player, kind: any, arg: any)
 		return
 	elseif kind == "introDone" then
 		DataService.setFlag(player, "IntroSeen")
+		return
+	elseif kind == "introAck" then
+		-- v1.5.2: the client finished (or skipped) the doors intro; release the round
+		introAcked[player.UserId] = true
 		return
 	elseif kind == "tutorialDone" then
 		DataService.setFlag(player, "TutorialDone")
@@ -708,6 +780,7 @@ function MatchService.init()
 	end
 	Players.PlayerAdded:Connect(hook)
 	Players.PlayerRemoving:Connect(function(player)
+		introAcked[player.UserId] = true -- v1.5.2: a leaver must never hold the doors open
 		local p = Participants.ofPlayer(player)
 		if p then
 			GridService.cancel(p)

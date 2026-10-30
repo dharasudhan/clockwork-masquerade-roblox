@@ -237,11 +237,22 @@ local function checkPasses(player: Player)
 	end
 end
 
+-- v1.6 review fix: an in-match re-dress is only safe by day (Phantoms look like guests then)
+-- for someone still in guest form; at night / dawn / as a Wisp it is deferred to the dawn swap.
+function ShopService.safeToDress(p: any, phase: any): boolean
+	if phase ~= "Day" then
+		return phase == "Lobby" or phase == "Intro" or phase == "Results" or phase == nil
+	end
+	return p ~= nil and p.state == "Guest" and not p.transformed
+end
+
 -- ProcessReceipt (idempotent). Exposed for tests.
 -- v1.1: `prod.starter` marks the one-time starter pack; `prod.season` unlocks the season's
 -- premium track (SeasonWinter -> data.Season.Premium; tier cosmetics unlock via Progression).
 -- v1.3: `prod.instantCosmetic` grants + auto-equips its exclusive mask the moment the pass is
 -- bought, before any tier is earned.
+-- v1.6.3: instantCosmetic now applies to ANY product (incl. in-match Robux cosmetic packs),
+-- and the dress-refresh below runs for any instantCosmetic purchase, not only season passes.
 function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(info.PlayerId)
 	local data = player and DataService.get(player)
@@ -275,17 +286,18 @@ function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 			data.Season.Tier = 1
 		end
 		data.Season.Premium = true
-		-- v1.3: instant gratification - the pass immediately grants + equips its exclusive mask.
-		-- v1.4 review fix: the gift goes into Owned (kept for good, like any bought cosmetic), and
-		-- premium rewards for tiers already reached unlock at once.
-		local gift = Cosmetics.byId(prod.instantCosmetic or "")
-		if gift then
-			data.Owned[gift.id] = true
-			data.Equipped[gift.kind] = gift.id
-		end
+		-- v1.4 review fix: premium rewards for tiers already reached unlock at once.
 		for _, id in Progression.seasonRewards(Cosmetics.Items, data.Season.Id, data.Season.Tier or 1, true) do
 			data.Owned[id] = true
 		end
+	end
+	-- v1.3/v1.6.3: instant gratification - any product with `instantCosmetic` grants +
+	-- auto-equips it the moment it is bought. The gift goes into Owned (kept for good, like
+	-- any bought cosmetic). Works for season passes AND v1.6.3 in-match Robux cosmetics.
+	local gift = Cosmetics.byId(prod.instantCosmetic or "")
+	if gift then
+		data.Owned[gift.id] = true
+		data.Equipped[gift.kind] = gift.id
 	end
 	local now = Clock.wall()
 	data.Purchases[pid] = now
@@ -296,11 +308,18 @@ function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 		end
 	end
 	DataService.publish(player)
-	if prod.season then
-		-- wear the new mask right away (in-match participant, else the lobby character)
+	if gift then
+		-- wear the new cosmetic right away (in-match participant, else the lobby character).
+		-- v1.6 review fix (Hark): never re-dress over the v1.4.1 night shroud or a Wisp - a
+		-- Phantom buying a mask at night would put its own look back on and out itself. Outside
+		-- a safe moment the dress waits for the dawn swap (MatchService.dawnSwap).
 		local p = Participants.ofPlayer(player)
 		if p then
-			ShopService.dress(p)
+			if ShopService.safeToDress(p, workspace:GetAttribute("CM_Phase")) then
+				ShopService.dress(p)
+			else
+				p.dressPending = true
+			end
 		elseif player.Character then
 			ShopService.dressModel(player.Character, player, nil)
 		end

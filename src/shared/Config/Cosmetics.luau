@@ -41,6 +41,16 @@ Cosmetics.Items = {
 	{ id = "lantern_starter", kind = "Lantern", name = "Guest's Lamp", color = "Copper", beam = "Amber", product = "StarterPack" },
 	{ id = "lantern_northern", kind = "Lantern", name = "Northern Lights (Winter Masquerade)", color = "TealDeep", beam = "TealNeon", seasonTier = 4, season = "winter-masquerade" },
 	{ id = "lantern_solstice", kind = "Lantern", name = "Solstice (Winter Masquerade)", color = "Gold", beam = "Gold", seasonTier = 7, season = "winter-masquerade", seasonPremium = true },
+	-- v1.6.3: in-match Robux specials (Config/Monetization `inMatch` products). COSMETIC ONLY,
+	-- and Phantom-fantasy pieces are day/lobby looks on purpose: a per-player Phantom NIGHT form
+	-- or tag effect would out its owner through the v1.4.1 uniform night shroud (even a
+	-- Night-3-only form leaks into the Day-3 Expose vote), so none is sold. Deferred idea: a
+	-- host-chosen UNIFORM Phantom form for private servers is leak-free (all Phantoms share it).
+	{ id = "mask_reaper", kind = "Mask", name = "Phantom Regent", color = "MaskNeon", product = "MaskPackReaper" },
+	{ id = "lantern_midnight", kind = "Lantern", name = "Midnight Lantern", color = "Navy", beam = "VioletNeon", product = "LanternPackMidnight" },
+	{ id = "trail_phantom", kind = "Trail", name = "Phantom Shimmer", color = "MaskNeon", product = "TrailPackPhantom" },
+	{ id = "emote_toast", kind = "Emote", name = "Teacup Toast", icon = "☕", color = "Brass", product = "EmotePackMasquerade" },
+	{ id = "emote_applause", kind = "Emote", name = "Applause", icon = "👏", color = "TealNeon", product = "EmotePackMasquerade" },
 	-- wisp trails
 	{ id = "trail_spark", kind = "Trail", name = "Spark Trail", color = "Wisp", free = true },
 	{ id = "trail_violet", kind = "Trail", name = "Violet Trail", color = "VioletNeon", level = 4 },

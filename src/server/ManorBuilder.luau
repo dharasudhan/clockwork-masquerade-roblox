@@ -21,6 +21,7 @@ local T = Style.WallThickness
 local LH = Manor.LevelHeight
 
 local built: any = nil
+local buildFameBoard, buildGatehouse -- v1.6.1 / v1.5.1 (defined with the lobby)
 
 local Mat = Enum.Material
 
@@ -200,6 +201,82 @@ local function liftPanel(parent: Instance, r)
 end
 
 -- ---- lobby + facade + grounds --------------------------------------------------------------
+-- A SurfaceGui text line (shared by the Hall of Fame board and the gatehouse sign).
+local function gline(sg: Instance, name: string, text: string, y: number, h: number, color: string, font: Enum.Font?): TextLabel
+	local l = Instance.new("TextLabel")
+	l.Name = name
+	l.BackgroundTransparency = 1
+	l.Position = UDim2.fromScale(0.05, y)
+	l.Size = UDim2.fromScale(0.9, h)
+	l.Font = font or Enum.Font.GothamBold
+	l.TextScaled = true
+	l.TextXAlignment = Enum.TextXAlignment.Left
+	l.TextColor3 = Build.color(color)
+	l.Text = text
+	l.Parent = sg
+	return l
+end
+
+-- v1.6.1 Hall of Fame: a walnut board on the terrace's west rail, facing the spawn. FameService
+-- paints Row1..Row10 (top 10 all-time match wins) from the OrderedDataStore.
+buildFameBoard = function(lobby: Instance, L)
+	local cz = (L.z0 + L.z1) / 2
+	local x = L.x0 + 1.5
+	local board = Build.part({ name = "FameBoard", parent = lobby, size = Vector3.new(0.6, 9, 12), pos = Vector3.new(x, 7.5, cz), color = "WalnutDark", material = Enum.Material.Wood })
+	for _, dz in { -6.45, 6.45 } do
+		Build.part({ name = "FamePost", parent = lobby, size = Vector3.new(0.8, 12.5, 0.8), pos = Vector3.new(x, 6.65, cz + dz), color = "Brass", material = Enum.Material.Metal })
+	end
+	local sg = Instance.new("SurfaceGui")
+	sg.Name = "Fame"
+	sg.Face = Enum.NormalId.Right -- +x: towards the spawn
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.PixelsPerStud = 30
+	sg.LightInfluence = 0
+	sg.Parent = board
+	local h = gline(sg, "Header", "HALL OF FAME", 0.03, 0.14, "Brass", Enum.Font.Sarpanch)
+	h.TextXAlignment = Enum.TextXAlignment.Center
+	local sub = gline(sg, "Sub", "All-time match wins", 0.17, 0.07, "TealNeon")
+	sub.TextXAlignment = Enum.TextXAlignment.Center
+	for i = 1, 10 do
+		gline(sg, "Row" .. i, if i == 1 then "No champions yet - win a match to be the first!" else "", 0.26 + (i - 1) * 0.071, 0.062, if i <= 3 then "Gold" else "Cream", Enum.Font.GothamBold)
+	end
+	return board
+end
+
+-- v1.5.1 Castle Sterling: gatehouse on the terrace's south edge, facing the spawn. The brass rail
+-- and the invisible boundary pass straight through both towers (nobody leaves the terrace).
+-- Kept low (arch top y ~17) so the intro's first camera pass flies over it.
+buildGatehouse = function(lobby: Instance, L)
+	local g = Instance.new("Model")
+	g.Name = "Gatehouse"
+	local z = L.z1
+	for _, sx in { -1, 1 } do
+		local x = sx * 10
+		Build.part({ name = "GatePlinth", parent = g, size = Vector3.new(6, 3, 6), pos = Vector3.new(x, 0.15, z), color = "Walnut", material = Enum.Material.Wood })
+		Build.part({ name = "GateTower", parent = g, size = Vector3.new(5, 16.7, 5), pos = Vector3.new(x, 1.35 + 16.7 / 2, z), color = "Cream", material = Enum.Material.Marble })
+		Build.part({ name = "GateParapet", parent = g, size = Vector3.new(5.8, 1.5, 5.8), pos = Vector3.new(x, 18.65, z), color = "Walnut", material = Enum.Material.Wood })
+		for _, c in { { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 } } do
+			Build.part({ name = "GateMerlon", parent = g, size = Vector3.new(1.2, 1.3, 1.2), pos = Vector3.new(x + c[1] * 2.15, 20.0, z + c[2] * 2.15), color = "Walnut", material = Enum.Material.Wood })
+		end
+	end
+	local arch = Build.part({ name = "GateArch", parent = g, size = Vector3.new(15.2, 3, 1.6), pos = Vector3.new(0, 14.5, z), color = "Cream", material = Enum.Material.Marble })
+	for k = 0, 8 do
+		Build.part({ name = "ArchMerlon", parent = g, size = Vector3.new(0.9, 1.3, 1.0), pos = Vector3.new(-6.4 + k * 1.6, 16.6, z), color = "Walnut", material = Enum.Material.Wood })
+	end
+	local sg = Instance.new("SurfaceGui")
+	sg.Name = "Sign"
+	sg.Face = Enum.NormalId.Front -- -z: the north face, towards the spawn
+	sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	sg.PixelsPerStud = 30
+	sg.LightInfluence = 0
+	sg.Parent = arch
+	local a = gline(sg, "Line1", "CASTLE STERLING", 0.06, 0.56, "Brass", Enum.Font.Sarpanch)
+	a.TextXAlignment = Enum.TextXAlignment.Center
+	local b = gline(sg, "Line2", "by invitation only", 0.62, 0.32, "TealNeon")
+	b.TextXAlignment = Enum.TextXAlignment.Center
+	g.Parent = lobby
+end
+
 local function buildLobby(map: Instance)
 	local L = Manor.Lobby
 	local lobby = Instance.new("Model")
@@ -274,8 +351,10 @@ local function buildLobby(map: Instance)
 	t2.Position = UDim2.fromScale(0, 0.62)
 	t2.Size = UDim2.fromScale(1, 0.34)
 	t2.TextColor3 = Build.color("TealNeon")
-	t2.Text = "Mystery at Sterling Manor"
+	t2.Text = "Mystery at Sterling Castle" -- v1.5.1 Castle Sterling
 	t2.Parent = sg
+	buildFameBoard(lobby, L)
+	buildGatehouse(lobby, L)
 	for _, p in { { L.x0 + 3, L.z1 - 3 }, { L.x1 - 3, L.z1 - 3 }, { L.x0 + 3, L.z0 + 3 } } do
 		Build.part({ name = "LampPost", parent = lobby, size = Vector3.new(0.6, 9, 0.6), pos = Vector3.new(p[1], 4.9, p[2]), color = "Iron", material = Enum.Material.Metal })
 		local glass = Build.part({ name = "LampGlass", parent = lobby, shape = Enum.PartType.Ball, size = Vector3.new(1.6, 1.6, 1.6), pos = Vector3.new(p[1], 10, p[2]), color = "Warm", material = Enum.Material.Neon, collide = false })
@@ -299,6 +378,34 @@ local function buildFacade(map: Instance)
 	Build.part({ name = "Pediment", parent = f, size = Vector3.new(58, 4.6, 1.6), pos = Vector3.new(0, 17.6, z + 0.85), color = "BrassDark", material = Enum.Material.Metal })
 	Build.part({ name = "ClockFace", parent = f, shape = Enum.PartType.Cylinder, size = Vector3.new(0.4, 7, 7), cf = CFrame.new(0, 28, z + 0.7) * CFrame.Angles(0, math.rad(90), 0), color = "Cream", material = Enum.Material.SmoothPlastic })
 	Build.part({ name = "ClockRim", parent = f, shape = Enum.PartType.Cylinder, size = Vector3.new(0.3, 7.8, 7.8), cf = CFrame.new(0, 28, z + 0.4) * CFrame.Angles(0, math.rad(90), 0), color = "Brass", material = Enum.Material.Metal })
+	-- v1.5.1 Castle Sterling crown: a crenellated parapet seated 0.1 into the column tops
+	-- (y = LH + 15.5), merlons seated 0.05 into it and thinner front-to-back, so no face shares
+	-- a plane with another.
+	local colTop = LH + 15.5
+	Build.part({ name = "Parapet", parent = f, size = Vector3.new(58, 2, 1.7), pos = Vector3.new(0, colTop - 0.1 + 1, z + 1.85), color = "Walnut", material = Enum.Material.Wood })
+	for k = 0, 12 do
+		Build.part({ name = "Merlon", parent = f, size = Vector3.new(2.4, 2, 1.4), pos = Vector3.new(-27.6 + k * 4.6, colTop + 1.9 - 0.05 + 1, z + 1.85), color = "Walnut", material = Enum.Material.Wood })
+	end
+	-- velvet banners on brass poles between the outer and inner columns
+	for _, x in { -13.25, 13.25 } do
+		Build.part({ name = "Banner", parent = f, size = Vector3.new(3.4, 9, 0.15), pos = Vector3.new(x, 25.5, z + 2.975), color = "Velvet", material = Enum.Material.Fabric, collide = false })
+		Build.part({ name = "BannerTrim", parent = f, size = Vector3.new(3.0, 0.5, 0.1), pos = Vector3.new(x, 22.2, z + 3.1), color = "Gold", material = Enum.Material.Metal, collide = false })
+		Build.part({ name = "BannerPole", parent = f, shape = Enum.PartType.Cylinder, size = Vector3.new(4.2, 0.35, 0.35), cf = CFrame.new(x, 30.2, z + 2.975), color = "Brass", material = Enum.Material.Metal, collide = false })
+	end
+	-- flank towers in front of the 1st-floor corners (x = +-36), 40 studs tall
+	for _, sx in { -1, 1 } do
+		local x, tz = sx * 36, z + 9.5
+		Build.part({ name = "TowerPlinth", parent = f, size = Vector3.new(7, 3, 7), pos = Vector3.new(x, -0.1, tz), color = "Walnut", material = Enum.Material.Wood })
+		Build.part({ name = "TowerShaft", parent = f, size = Vector3.new(6, 38.7, 6), pos = Vector3.new(x, 1.3 + 38.7 / 2, tz), color = "Cream", material = Enum.Material.Marble })
+		Build.part({ name = "TowerParapet", parent = f, size = Vector3.new(7.4, 2, 7.4), pos = Vector3.new(x, 40.9, tz), color = "Walnut", material = Enum.Material.Wood })
+		for _, c in { { -1, -1 }, { 1, -1 }, { -1, 1 }, { 1, 1 }, { 0, -1 }, { 0, 1 } } do
+			Build.part({ name = "TowerMerlon", parent = f, size = Vector3.new(1.4, 1.6, 1.4), pos = Vector3.new(x + c[1] * 2.8, 42.65, tz + c[2] * 2.8), color = "Walnut", material = Enum.Material.Wood })
+		end
+		for _, y in { 13, 27 } do
+			local slit = Build.part({ name = "ArrowSlit", parent = f, size = Vector3.new(0.8, 4, 0.2), pos = Vector3.new(x, y, tz + 3.05), color = "Warm", material = Enum.Material.Neon, collide = false })
+			slit.CastShadow = false
+		end
+	end
 	f.Parent = map
 end
 

@@ -1223,6 +1223,49 @@ function Kits.laundry(f, r, b)
 		deco(f, "Sheet", x - 1.8, x + 1.8, b + 6.5, b + 10, cz + 11.95, cz + 12, ({ "Cream2", "SkyBlue", "Rose" })[(k % 3) + 1], M.Fabric)
 	end
 end
+-- v1.6.2 Grotto Baths: a shallow tiled wading pool (Manor.Pools), brass rim, glowing water,
+-- a lion-head fountain on the back rim, a ladder, loungers and towel racks. All non-colliding
+-- like every other furnishing (nobody snags; scatter spots, chests and doors keep clear of it).
+function Kits.grotto(f, r, b)
+	local pool = nil
+	for _, pl in Manor.Pools or {} do
+		if pl.room == r.id then
+			pool = pl
+		end
+	end
+	if not pool then
+		return
+	end
+	local px, pz, hx, hz, rim = pool.x, pool.z, pool.hx or 10, pool.hz or 6, 0.6
+	local x0, x1, z0, z1 = px - hx, px + hx, pz - hz, pz + hz
+	-- rim: N/S strips run the full width, W/E strips butt-join between them
+	deco(f, "PoolRim", x0 - rim, x1 + rim, b, b + 1.2, z0 - rim, z0, "Brass", M.Metal)
+	deco(f, "PoolRim", x0 - rim, x1 + rim, b, b + 1.2, z1, z1 + rim, "Brass", M.Metal)
+	deco(f, "PoolRim", x0 - rim, x0, b, b + 1.2, z0, z1, "Brass", M.Metal)
+	deco(f, "PoolRim", x1, x1 + rim, b, b + 1.2, z0, z1, "Brass", M.Metal)
+	-- basin floor tiles + water (glass, see-through, glowing)
+	deco(f, "PoolTiles", x0, x1, b + 0.1, b + 0.2, z0, z1, "SkyBlue", M.CeramicTiles, { shadow = false })
+	local water = deco(f, "PoolWater", x0 + 0.01, x1 - 0.01, b + 0.25, b + 0.95, z0 + 0.01, z1 - 0.01, "Bubble", M.Glass, { t = 0.35, shadow = false })
+	neonLight(water, "Bubble", 1.2, 18)
+	-- fountain: a brass lion-head spout on the back (z1) rim with a falling neon stream
+	deco(f, "FountainBack", px - 1.5, px + 1.5, b, b + 5, z1 + rim, z1 + rim + 0.8, "Brass", M.Metal)
+	ball(f, "LionHead", px, b + 4.2, z1 + rim - 0.15, 1.6, "Gold", M.Metal)
+	local stream = deco(f, "Stream", px - 0.25, px + 0.25, b + 1.0, b + 3.6, z1 - 0.9, z1 - 0.5, "Bubble", M.Neon, { t = 0.3, shadow = false })
+	stream.CastShadow = false
+	-- ladder at the east end
+	for _, dz in { -0.8, 0.8 } do
+		cyl(f, "LadderRail", x1 - 0.3, b + 1.6, pz + dz, 2.6, 0.2, "Steel", M.Metal, true)
+	end
+	-- loungers (canvas) on the back walkway, west of the fountain
+	for k = 0, 1 do
+		local lx = x0 + 2.5 + k * 5
+		deco(f, "Lounger", lx - 1.2, lx + 1.2, b + 0.6, b + 1.0, r.z1 - T - 3, r.z1 - T - 0.35, ({ "Teal", "Rose" })[k + 1], M.Fabric)
+		deco(f, "LoungerBack", lx - 1.2, lx + 1.2, b + 1.0, b + 2.4, r.z1 - T - 0.85, r.z1 - T - 0.35, ({ "Teal", "Rose" })[k + 1], M.Fabric)
+	end
+	-- towel rack on the east walkway
+	deco(f, "TowelRack", x1 + 4.2, x1 + 4.5, b, b + 4, pz - 2.03, pz + 2.03, "Brass", M.Metal)
+	deco(f, "Towel", x1 + 4.0, x1 + 4.7, b + 1.8, b + 3.9, pz - 1.6, pz + 1.6, "Cream2", M.Fabric)
+end
 ManorDecor.Kits = Kits
 
 -- Dress one room. Returns a summary { art = n, plants = n }.

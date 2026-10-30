@@ -58,13 +58,50 @@ Monetization.Products = {
 	-- Season 1 premium track (Config/Season; 0 id = season inactive in the shop).
 	-- v1.3: instantCosmetic = granted + auto-equipped the moment the pass is bought (pre-tier).
 	SeasonWinter = { id = 0, priceDraft = 399, name = "Winter Masquerade Pass", season = "winter-masquerade", instantCosmetic = "mask_rime" },
+	-- v1.6.3: in-match Robux specials (`inMatch` = surfaced by the in-match Robux Shop button).
+	-- COSMETIC ONLY, per the house rule. Phantom-fantasy pieces are day/lobby looks: a per-player
+	-- night form or tag effect would out the owning Phantom through the v1.4.1 uniform shroud, so
+	-- none is sold. instantCosmetic grants + auto-equips on purchase (in-match dress included).
+	MaskPackReaper = {
+		id = 0, priceDraft = 99, name = "Phantom Regent Mask", inMatch = true, instantCosmetic = "mask_reaper",
+		desc = "Wear the Phantom's own regalia to the ball. Cosmetic only - by night every Phantom wears the same shroud.",
+		grants = { "mask_reaper" },
+	},
+	LanternPackMidnight = {
+		id = 0, priceDraft = 79, name = "Midnight Lantern", inMatch = true, instantCosmetic = "lantern_midnight",
+		desc = "A navy lamp with a violet beam for night hunts. Cosmetic only.",
+		grants = { "lantern_midnight" },
+	},
+	TrailPackPhantom = {
+		id = 0, priceDraft = 99, name = "Phantom Shimmer Trail", inMatch = true, instantCosmetic = "trail_phantom",
+		desc = "A magenta shimmer for your Electro-Wisp. Cosmetic only.",
+		grants = { "trail_phantom" },
+	},
+	EmotePackMasquerade = {
+		id = 0, priceDraft = 49, name = "Masquerade Emotes (Teacup Toast + Applause)", inMatch = true,
+		desc = "Raise a teacup toast and applaud the drama. Cosmetic only.",
+		grants = { "emote_toast", "emote_applause" },
+	},
 }
 
 -- Order in the shop's Robux tab (starter first: highest conversion moment is the first session)
 Monetization.ShopOrder = {
 	"StarterPack", "SeasonWinter", "VIP", "VIPPlus", "DoubleTokens", "Host",
+	"MaskPackReaper", "LanternPackMidnight", "TrailPackPhantom", "EmotePackMasquerade", -- v1.6.3 in-match specials
 	"MaskPackNeon", "LanternPackEmber", "TrailPackRainbow", "EmotePackParty", "TokenPouch", "TokenChest",
 }
+
+-- v1.6.3: products flagged for the in-match Robux shop ( Settings > ROBUX SHOP during a match ).
+function Monetization.inMatchProducts(): { string }
+	local out = {}
+	for _, key in Monetization.ShopOrder do
+		local p = Monetization.Products[key]
+		if p and p.inMatch then
+			table.insert(out, key)
+		end
+	end
+	return out
+end
 
 function Monetization.productById(id: number)
 	if id == 0 then

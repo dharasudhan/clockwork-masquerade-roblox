@@ -97,7 +97,7 @@ Nights[2] = {
 			Phantom = "Tamper a breaker or TRAP a cabinet",
 		},
 		Night = {
-			Guest = "Bring pages to the Projector (Library) + fix breakers",
+			Guest = "Bring pages to the Projector (Royal Library) + fix breakers",
 			Phantom = "Tag guests! Use GLIDE to slip through walls",
 			Wisp = "You're a Wisp! Flicker lights, drop oil slicks",
 			Bubble = "Energy Bubble! Becoming a Wisp...",

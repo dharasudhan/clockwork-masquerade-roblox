@@ -434,7 +434,7 @@ function ChaseService.dropGlow(p): boolean
 	end
 	local part = Build.part({ name = "GlowStick", parent = effects(), size = Vector3.new(0.3, 0.3, 1.4), cf = CFrame.new(pos.X, floorY(pos) + 0.2, pos.Z) * CFrame.Angles(0, math.random() * 6.28, 0), color = "Glow", material = Enum.Material.Neon, collide = false, query = false, shadow = false })
 	Build.light(part, "PointLight", Build.color("Glow"), 2, GS.radius)
-	table.insert(glows, { owner = p.id, x = pos.X, y = p.y, z = pos.Z, untilT = Clock.now() + GS.lifetime, part = part })
+	table.insert(glows, { owner = p.id, x = pos.X, y = pos.Y, z = pos.Z, untilT = Clock.now() + GS.lifetime, part = part })
 	Participants.set(p, "GlowStick", p.inv.GlowStick)
 	return true
 end

@@ -1,3 +1,58 @@
+# Clockwork Masquerade — v1.3 season premium track (Oct 30, 2026)
+
+The Winter Masquerade Pass finally has a reason to exist. Until now it set a 👑 flag and nothing
+else; this pass makes premium worth 399 R$ while keeping the two hard rules from the v1.1
+economy work: **no gameplay power** (symmetric information is the whole game — young Roblox
+audiences are pay-to-win sensitive) and **no token stipends** (that would reopen the
+undercut-the-2x-pass hole the v1.1 pricing fixed).
+
+## What premium unlocks
+
+1. **Instant purchase reward.** The moment the pass is bought, the buyer gets the **Rime Regent
+   mask** granted AND auto-equipped — visible on their character in the lobby or in-match
+   (`prod.instantCosmetic` on `SeasonWinter`, applied + dressed in
+   `ShopService.processReceipt`). Instant gratification before a single tier is earned.
+2. **Premium track cosmetics** (`seasonPremium = true` in `Config/Cosmetics`, gated in
+   `Progression.owns` by `data.Season.Premium` on top of the existing tier check):
+   - **T1 Rime Regent mask** (the purchase gift, still listed on the track)
+   - **T3 Aurora Borealis trail**
+   - **T5 Ice Sculpture emote**
+   - **T7 Solstice lantern** (gold beam)
+   - **T10 Winter King mask** — the season-end flex prize
+   - The free track is unchanged: Frost Filigree (t2), Northern Lights (t4), Snowfall (t6),
+     Gift Box (t8). The pass accelerates and decorates; it never walls off free rewards.
+3. **+15% season XP** (`Config/Season.PremiumXpFactor`, applied in `QuestService.seasonXp`) —
+   pass holders reach the same tiers ~13% fewer matches. Grind-shortening only: XP buys tier
+   cosmetics, never power.
+
+## What it deliberately does NOT do
+- **No token stipend, no token multiplier** — tokens stay earned only through play, or the
+  2x pass via the 2x Gear Tokens game pass. A season pass that prints tokens would re-create
+  the v1.1 economy bug at 399 R$.
+- **No power, no information**: no gadget unlocks, no clue reveals, no Phantom-side perks.
+  Every competitive edge stays earned in-match.
+
+## Client
+- Quests panel season block now shows **two reward lines**: `FREE TRACK:` (Amber) and
+  `PREMIUM TRACK:` (Gold), prefixed 👑 when owned and 🔒 when not. Spacing adjusted so both
+  wrapped lines fit above the quest list (portrait + landscape rects unchanged).
+- The coming-soon state teases the premium line ("buy the Winter Masquerade Pass when it goes
+  on sale") so the track sells itself before the season starts.
+
+## Season rollover note
+A pass belongs to the season it was bought for: `QuestService.seasonXp` already resets
+`Season.Premium` when a NEW season id arrives (a pre-season purchase pre-fills the id at
+receipt time, so it survives the start line). Next season = new pass purchase. Standard
+battle-pass convention; document it in the shop description when the real id goes in.
+
+## New tests
+- `tests/specs/Progression.spec.luau` — premium gate: pass required even at max tier, pass
+  alone not enough (tier still matters), free track unaffected.
+- Re-run `./scripts/test.sh` + the bot balance sim; nothing here touches match logic, but the
+  suite should stay green before merging.
+
+---
+
 # Clockwork Masquerade — v1.2 gameplay upgrade (Oct 30, 2026)
 
 The engagement pass: makes matches escalate, gives losing sides a comeback, and turns the social

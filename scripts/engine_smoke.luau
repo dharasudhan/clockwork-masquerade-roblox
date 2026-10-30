@@ -759,6 +759,15 @@ step("full 3-night match, 1 human + 5 bots: Night 1 Breaker -> Dawn -> Night 2 A
 		end), "no night " .. no)
 		local ph = Participants.phantoms()[1]
 		assert(ph.model:FindFirstChild("PhantomMask") and ph.model:GetAttribute("PState") == "Phantom", "phantom unmasked at night")
+		do -- v1.4: the night Phantom is anonymous (no nametag, no ribbon)
+			local hum = ph.model:FindFirstChildOfClass("Humanoid")
+			local hd = ph.model:FindFirstChild("Head")
+			local tag = hd and hd:FindFirstChild("NameTag")
+			local rib = ph.model:FindFirstChild("Ribbon")
+			assert(not hum or hum.DisplayDistanceType == roblox.Enum.HumanoidDisplayDistanceType.None, "night Phantom shows a name")
+			assert(not tag or tag.Enabled == false, "night Phantom NameTag visible")
+			assert(not rib or rib.Transparency == 1, "night Phantom ribbon visible")
+		end
 		if no < 3 then
 			assert(workspace:GetAttribute("CM_Tripped") ~= "" or GridService.state().tampers == 0, "tampered breaker did not trip")
 			assert(run(Nights.nightLength(n) + 2, function()
@@ -774,6 +783,12 @@ step("full 3-night match, 1 human + 5 bots: Night 1 Breaker -> Dawn -> Night 2 A
 			for _, p in Participants.all() do
 				assert(p.state == "Guest", "everyone looks like a guest at the next day: " .. p.name .. "=" .. p.state)
 				assert(not (p.model and p.model:FindFirstChild("WispOrb")), "wisp orb left over")
+				local rib = p.model and p.model:FindFirstChild("Ribbon")
+				assert(not rib or rib.Transparency == 0, "ribbon still hidden by day: " .. p.name)
+				local hd = p.model and p.model:FindFirstChild("Head")
+				local tag = hd and hd:FindFirstChild("NameTag")
+				assert(not tag or tag.Enabled, "name still hidden by day: " .. p.name)
+				assert(not (tag and string.find(tag:FindFirstChildWhichIsA("TextLabel", true) and tag:FindFirstChildWhichIsA("TextLabel", true).Text or "", "[BOT]", 1, true)), "bot labelled [BOT]")
 			end
 		else
 			assert(workspace:GetAttribute("CM_Stage") == "Showdown", "finale showdown")
@@ -1486,6 +1501,15 @@ step("v1.1/v1.2: save v2->v3 migration, quests (corrupt list rerolls, payout onc
 	data.Season = { Id = Season.Id, XP = 0, Tier = 1, Premium = true }
 	QuestService.seasonXp(data, 10)
 	assert(data.Season.Premium == true, "premium for this season lost")
+	-- v1.4: +15% season XP with the pass, and reached season cosmetics are kept in Owned
+	data.Season = { Id = Season.Id, XP = 0, Tier = 1, Premium = true }
+	QuestService.seasonXp(data, 100)
+	assert(data.Season.XP == 115, "premium XP factor " .. tostring(data.Season.XP))
+	data.Season = { Id = Season.Id, XP = 740, Tier = 3, Premium = false }
+	QuestService.seasonXp(data, 20)
+	assert(data.Season.Tier == 4 and data.Owned.mask_frost and data.Owned.lantern_northern, "free season rewards kept")
+	assert(not data.Owned.trail_aurora, "premium reward granted without the pass")
+	data.Owned.mask_frost, data.Owned.lantern_northern = nil, nil
 	Season.StartsAt, Season.EndsAt = s0, e0
 	data.Season = { Id = "", XP = 0, Tier = 1, Premium = false }
 	-- starter trunk + season pass receipts set their flags
@@ -1496,6 +1520,15 @@ step("v1.1/v1.2: save v2->v3 migration, quests (corrupt list rerolls, payout onc
 	assert(data.StarterPackBought and data.Owned.mask_starter and human:GetAttribute("StarterPackBought") == true, "starter flag")
 	assert(ShopService.processReceipt({ PlayerId = 4242, ProductId = 444, PurchaseId = "r-s2" }) == Granted, "season receipt")
 	assert(data.Season.Premium and data.Season.Id == Season.Id, "season premium flag")
+	assert(data.Owned.mask_rime and data.Equipped.Mask == "mask_rime", "pass gift mask not granted + equipped")
+	-- a save still on an older season's track: the pass starts this season (premium survives)
+	data.Season = { Id = "old-season", XP = 2000, Tier = 9, Premium = false }
+	data.Owned.trail_aurora = nil
+	assert(ShopService.processReceipt({ PlayerId = 4242, ProductId = 444, PurchaseId = "r-s3" }) == Granted, "season receipt 2")
+	assert(data.Season.Id == Season.Id and data.Season.Tier == 1 and data.Season.Premium, "stale season id on purchase")
+	assert(not data.Owned.trail_aurora, "old season tier unlocked a new premium reward")
+	data.Owned.mask_rime = nil
+	data.Equipped.Mask = "mask_brass"
 	Monetization.Products.StarterPack.id = 0
 	Monetization.Products.SeasonWinter.id = 0
 	data.StarterPackBought = false

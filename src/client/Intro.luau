@@ -1,6 +1,8 @@
 -- The story intro ("Break In"-style): a skippable cinematic of camera pans around Sterling
 -- Manor with dialogue bubbles from Bellows the butler and Professor Sterling, the inventor.
--- Plays on a player's first visit (IntroSeen = false) and from Settings > Replay story intro.
+-- Plays at the START OF EVERY SESSION since v1.4 (before v1.4: first visit only) and from
+-- Settings > Replay story intro. The IntroSeen attribute is still sent to the server for
+-- stats, but it no longer gates the cinematic.
 -- Step-driven (Intro.step(dt) from Heartbeat) so it is deterministic and testable headless.
 -- Skip: the SKIP button, gamepad B / A, keyboard Space / Backspace.
 local ContextActionService = game:GetService("ContextActionService")

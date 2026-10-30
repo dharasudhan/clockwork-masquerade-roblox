@@ -258,14 +258,12 @@ RunService.Heartbeat:Connect(function(dt)
 			Menus.close()
 		end
 	end
-	-- first visit: the story intro, then the guided first match
+	-- v1.4: the skippable story intro plays at the start of EVERY session (SKIP button,
+	-- Space / Backspace, gamepad A/B). The guided first match still follows for anyone who
+	-- has not finished the tutorial - the intro callback checks TutorialDone itself.
 	if not introChecked and player:GetAttribute("IntroSeen") ~= nil then
 		introChecked = true
-		if player:GetAttribute("IntroSeen") == false then
-			playIntro(true)
-		elseif player:GetAttribute("TutorialDone") == false then
-			startTutorial()
-		end
+		playIntro(true)
 	end
 	local m, s = player:GetAttribute("Set_Music"), player:GetAttribute("Set_Sfx")
 	if m ~= lastMusic or s ~= lastSfx then

@@ -19,6 +19,12 @@ Secular 1920s inventor / steampunk-neon look, family-safe, **no ghosts** (delibe
 > Storm escalation, Dawn Rush, Last Stand, manor events, witness tells, Grazed near-miss. Bot-only balance (30 matches):
 > **47 % guest wins**. Build label `v1.2`.
 
+> **v1.4 (Oct 30 2026)** — merged from PR #2 (v1.3 season pass premium track) and PR #3 (v1.4 every-session
+> skippable intro + deduction fix: night Phantom anonymous, bots unlabelled) plus Hark's review fixes (season
+> cosmetics kept in `Owned` and tagged per season, pass gift owned for good, stale-season purchase keeps premium,
+> premium XP rounding, tier-sorted reward lines, night Phantom ribbon hidden). All Robux ids still **0**; season
+> still unscheduled. Bot-only balance (30 matches): **50 % guest wins**. Build label `v1.4`.
+
 ## Streaming + performance budget (v1.0 RC)
 
 `Workspace.StreamingEnabled = true` (both project files): **StreamingTargetRadius 256**, **StreamingMinRadius 96**,
@@ -181,6 +187,12 @@ Max Players **10**; Enable Studio Access to API Services (to test saves in Studi
 until Gate 6; rename the experience from "GhostMansionTest" when Murali wants.
 
 ## Status
+
+**Oct 30 2026 — v1.4**: local 94/94 specs, place verify 56/56, engine smoke 0 failures (new: premium XP, season
+rewards kept, pass gift + stale-season receipt, anonymous night Phantom, no [BOT] tags); balance 30 bot matches
+15/30 = 50 % guest wins. Cloud (universe 10773325724 only): 95/95 specs, boot OK (v1.4), real-engine bot match OK,
+audio 25/25. **Published privately as place version 15**; universe read back PRIVATE. Quests mock-ups: `../shots/v1.4/`.
+Known flake: the 1-human smoke match occasionally misses "nobody reached level 2" (random bot routes; passes on rerun).
 
 **Oct 30 2026 — v1.2**: local 88/88 specs, place verify 56/56, engine smoke 0 failures (incl. v1.1/v1.2 step:
 v2→v3 migration, quests, season, starter/season receipts, manor events; Quests panel gamepad + live refresh);

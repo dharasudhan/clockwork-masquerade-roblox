@@ -5,7 +5,8 @@
 --   Class     Mechanist / Illuminator cards
 --   Settings  Music, Sound effects, Hints toggles + "Replay story intro" + "Replay tutorial"
 --   Quests    daily + weekly objectives with live progress and Gear Token payouts, plus the
---             season track (tier, XP bar, premium flag, tier rewards); lobby button + Settings
+--             season track (tier, XP bar, premium flag, FREE + PREMIUM tier rewards); lobby
+--             button + Settings
 --   Vote      Expose vote at the Evidence Board: everyone in the match with their ribbon colour,
 --             vote counts and the clues found today
 --   Items     what each carried item does (icon, name, count, one-line tip)
@@ -188,6 +189,8 @@ local function cosmeticStatus(c): (string, string)
 		return "LEVEL " .. c.level, "Iron"
 	elseif c.daily then
 		return "DAY " .. c.daily .. " GIFT", "Iron"
+	elseif c.seasonTier then
+		return (if c.seasonPremium then "👑 TIER " else "TIER ") .. c.seasonTier, if c.seasonPremium then "Velvet" else "Iron"
 	elseif c.pass then
 		return "VIP PASS", "Velvet"
 	elseif c.product then
@@ -228,6 +231,12 @@ local function clickCosmetic(c)
 		State.toast = { text = c.name .. " unlocks at level " .. c.level .. "!", color = "Amber", at = os.clock() }
 	elseif c.daily then
 		State.toast = { text = c.name .. ": log in " .. c.daily .. " days in a row!", color = "Amber", at = os.clock() }
+	elseif c.seasonTier then
+		State.toast = {
+			text = c.name .. ": reach season tier " .. c.seasonTier .. (if c.seasonPremium then " with the season pass!" else "!"),
+			color = "Amber",
+			at = os.clock(),
+		}
 	elseif c.pass then
 		promptRobux("pass", c.pass)
 	elseif c.product then
@@ -375,35 +384,49 @@ local function questRows(attr: string): { any }
 	return out
 end
 
-local function seasonRewardLine(): string
-	local bits = {}
+-- v1.3: two reward tracks - the free track everyone earns, and the premium track that needs the
+-- season pass (Progression.owns gates on data.Season.Premium). Returns (freeLine, premiumLine).
+local function seasonRewardLines(): (string, string)
+	-- v1.4 review: sorted by tier NUMBER (a string sort put T10 before T3) and compact text so
+	-- each track stays readable (>= ~15 px) on a 780x360 phone
+	local free, prem = {}, {}
 	for _, kind in { "Mask", "Lantern", "Trail", "Emote" } do
 		for _, c in Cosmetics.ofKind(kind) do
-			if c.seasonTier then
-				table.insert(bits, string.format("T%d %s %s", c.seasonTier, c.icon or "◆", string.gsub(c.name, "%s%(.*%)$", "")))
+			if c.seasonTier and (c.season == nil or c.season == SeasonCfg.Id) then
+				table.insert(if c.seasonPremium then prem else free, c)
 			end
 		end
 	end
-	table.sort(bits)
-	return table.concat(bits, "   ")
+	local function line(list): string
+		table.sort(list, function(a, b)
+			return a.seasonTier < b.seasonTier
+		end)
+		local bits = {}
+		for _, c in list do
+			local nm = string.gsub(c.name, "%s%(.*%)$", "")
+			table.insert(bits, string.format("T%d %s%s", c.seasonTier, if c.icon then c.icon .. " " else "", nm))
+		end
+		return table.concat(bits, " · ")
+	end
+	return line(free), line(prem)
 end
 
 function builders.Quests()
 	title.Text = string.format("QUESTS   ⚙ %d Gear Tokens", me():GetAttribute("GearTokens") or 0)
-	-- season block (fixed at the top): state, XP bar, tier rewards
+	-- season block (fixed at the top): state, XP bar, tier rewards (free + premium tracks)
 	local season = Instance.new("Frame")
 	season.Name = "Season"
 	season.BackgroundTransparency = 1
-	season.Size = UDim2.fromScale(1, 0.34)
+	season.Size = UDim2.fromScale(1, 0.46)
 	season.ZIndex = 12
 	season.Parent = content
 	local sname = Hud.label("SeasonName", season, "")
-	sname.Size = UDim2.fromScale(1, 0.28)
+	sname.Size = UDim2.fromScale(1, 0.17)
 	sname.TextXAlignment = Enum.TextXAlignment.Left
 	sname.TextColor3 = rgb("Brass")
 	local xpBar = Hud.panel("SeasonXP", "Iron", 0.2, season)
-	xpBar.Size = UDim2.fromScale(1, 0.2)
-	xpBar.Position = UDim2.fromScale(0, 0.31)
+	xpBar.Size = UDim2.fromScale(1, 0.12)
+	xpBar.Position = UDim2.fromScale(0, 0.19)
 	local st = Instance.new("UIStroke")
 	st.Color = rgb("Brass")
 	st.Thickness = 1
@@ -418,16 +441,23 @@ function builders.Quests()
 	xpText.ZIndex = 2
 	xpText.TextStrokeTransparency = 0.5
 	local rewards = Hud.label("Rewards", season, "")
-	rewards.Size = UDim2.fromScale(1, 0.44)
-	rewards.Position = UDim2.fromScale(0, 0.55)
+	rewards.Size = UDim2.fromScale(1, 0.32)
+	rewards.Position = UDim2.fromScale(0, 0.33)
 	rewards.TextYAlignment = Enum.TextYAlignment.Top
 	rewards.TextWrapped = true
 	rewards.TextColor3 = rgb("Amber")
+	local premRewards = Hud.label("PremiumRewards", season, "")
+	premRewards.Size = UDim2.fromScale(1, 0.32)
+	premRewards.Position = UDim2.fromScale(0, 0.67)
+	premRewards.TextYAlignment = Enum.TextYAlignment.Top
+	premRewards.TextWrapped = true
+	premRewards.TextColor3 = rgb("Gold")
 	local sid, tier, premium = string.match(me():GetAttribute("Season") or "", "^(.-):(%d+):(%d)$")
 	if sid == nil or sid == "" or not seasonLive() then
 		sname.Text = string.format("❄️ %s — COMING SOON!%s", SeasonCfg.Name, if premium == "1" then "  👑" else "")
 		xpText.Text = "Season 1 starts when the gates open!"
 		fill.Size = UDim2.fromScale(0, 1)
+		premRewards.Text = "🔒 PASS TRACK: 5 extra winter cosmetics with the Winter Masquerade Pass (coming soon)"
 	else
 		local xp = me():GetAttribute("SeasonXP") or 0
 		local t = math.min(tonumber(tier) or 1, SeasonCfg.TierCount)
@@ -441,14 +471,16 @@ function builders.Quests()
 			fill.Size = UDim2.fromScale(math.clamp(into / SeasonCfg.XpPerTier, 0, 1), 1)
 			xpText.Text = string.format("%d / %d XP to tier %d", into, SeasonCfg.XpPerTier, t + 1)
 		end
-		rewards.Text = "TIER REWARDS: " .. seasonRewardLine()
+		local freeLine, premLine = seasonRewardLines()
+		rewards.Text = "FREE: " .. freeLine
+		premRewards.Text = (if premium == "1" then "👑 PASS: " else "🔒 PASS: ") .. premLine
 	end
 	-- quests (scroll): section headers + one row per quest
 	local area = Instance.new("Frame")
 	area.Name = "Area"
 	area.BackgroundTransparency = 1
-	area.Size = UDim2.fromScale(1, 0.63)
-	area.Position = UDim2.fromScale(0, 0.37)
+	area.Size = UDim2.fromScale(1, 0.52)
+	area.Position = UDim2.fromScale(0, 0.48)
 	area.ZIndex = 12
 	area.Parent = content
 	local g = grid(area, 1, 46)

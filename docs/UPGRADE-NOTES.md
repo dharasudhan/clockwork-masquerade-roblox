@@ -1,3 +1,119 @@
+# Clockwork Masquerade — v1.4 session intro (Oct 30, 2026)
+
+## Every-session story intro
+
+- The story intro now plays at the START OF EVERY SESSION (was: first visit only).
+- Still fully skippable on every device: SKIP button, Space / Backspace, gamepad A / B —
+  gamepad focus lands on the SKIP button.
+- `IntroSeen` is still sent to the server (`introDone`) for stats, but it no longer gates
+  the cinematic on the client.
+- The guided first match still follows the intro for anyone who has not finished the
+  tutorial (`TutorialDone` is checked in the intro callback), so returning players who
+  dodged the tutorial in v1.2–v1.3 re-enter the funnel.
+- Why: every session opens with the brand and the story premise; skip is one input on
+  every device, so retention cost is minimal while the manor's identity stays front-and-
+  center (it also re-teaches the witness-tell after updates).
+- One-line revert: in `init.client.luau`, restore the `IntroSeen == false` gate in the
+  `introChecked` block.
+
+## Deduction leaks fixed (the Phantom was guessable)
+
+Two information leaks made the human Phantom identifiable, so the Expose vote was
+degenerating into elimination:
+
+- **Nametag on the transformed Phantom.** The night monster kept the humanoid's floating
+  name — a name over the Phantom literally named its account. New `ChaseService.setNameShown`
+  hides the nametag at `nightFalls` (both flavours: the Humanoid default tag via
+  `DisplayDistanceType = None`, and the bot `NameTag` billboard via `Enabled = false`), and
+  restores it at dawn (disguise back on), on `reapply` (respawn), and on match `reset` —
+  a hidden name can never leak into the next match.
+- **Bots labelled `[BOT]` in-world.** In-world bots read `Name [BOT]` while the vote panel
+  listed plain names, so guests cleared every bot from suspicion and the human Phantom was
+  the only candidate left by elimination. Bot nametags now show the plain name, exactly
+  like human guests. The `IsBot` model attribute stays (server logic only, replicated but
+  never rendered) — no brain, vote or stats behaviour changes.
+
+Names stay visible for everyone by day: daytime accusations, the vote panel and the
+witness-tell all need referable identity, and a name over a guest is not a leak — it
+becomes one only when that character transforms.
+
+Known side effect (intended): guests can now "waste" Expose votes on bots, which is
+healthy misdirection — bot suspicion is a feature, not a bug.
+
+## Merge review fixes (Hark, Oct 30 2026)
+
+- Season cosmetics are copied into `Owned` as tiers are reached (free track always, premium track
+  with the pass) and every season item carries `season = "winter-masquerade"`, so a later season's
+  track reset never takes away an earned or paid-for cosmetic, and a later season's tiers never
+  re-unlock winter items (`Progression.seasonRewards`, `Progression.owns`).
+- The pass's Rime Regent gift goes into `Owned` (kept for good) as well as being equipped; premium
+  rewards for tiers already reached unlock at purchase.
+- Buying the pass while the save still carries an older season's id now starts this season's
+  track at once (before, the next match end would have wiped the premium flag just paid for).
+- `PremiumXpFactor` rounds instead of floors (100 XP gave 114 because 100 × 1.15 = 114.999…).
+- Quests panel: reward lines sorted by tier number (string sort put T10 before T3), compact
+  `FREE:` / `PASS:` lines with more height (≈15 px text on a 780×360 phone instead of 8–10 px).
+- Shop: season items show `TIER n` / `👑 TIER n` and a hint toast instead of `?`.
+- The night Phantom's match ribbon is hidden too (the vote panel lists name + ribbon colour, so a
+  visible ribbon named the Phantom just like the nametag); restored at dawn / reset.
+
+---
+
+# Clockwork Masquerade — v1.3 season premium track (Oct 30, 2026)
+
+The Winter Masquerade Pass finally has a reason to exist. Until now it set a 👑 flag and nothing
+else; this pass makes premium worth 399 R$ while keeping the two hard rules from the v1.1
+economy work: **no gameplay power** (symmetric information is the whole game — young Roblox
+audiences are pay-to-win sensitive) and **no token stipends** (that would reopen the
+undercut-the-2x-pass hole the v1.1 pricing fixed).
+
+## What premium unlocks
+
+1. **Instant purchase reward.** The moment the pass is bought, the buyer gets the **Rime Regent
+   mask** granted AND auto-equipped — visible on their character in the lobby or in-match
+   (`prod.instantCosmetic` on `SeasonWinter`, applied + dressed in
+   `ShopService.processReceipt`). Instant gratification before a single tier is earned.
+2. **Premium track cosmetics** (`seasonPremium = true` in `Config/Cosmetics`, gated in
+   `Progression.owns` by `data.Season.Premium` on top of the existing tier check):
+   - **T1 Rime Regent mask** (the purchase gift, still listed on the track)
+   - **T3 Aurora Borealis trail**
+   - **T5 Ice Sculpture emote**
+   - **T7 Solstice lantern** (gold beam)
+   - **T10 Winter King mask** — the season-end flex prize
+   - The free track is unchanged: Frost Filigree (t2), Northern Lights (t4), Snowfall (t6),
+     Gift Box (t8). The pass accelerates and decorates; it never walls off free rewards.
+3. **+15% season XP** (`Config/Season.PremiumXpFactor`, applied in `QuestService.seasonXp`) —
+   pass holders reach the same tiers ~13% fewer matches. Grind-shortening only: XP buys tier
+   cosmetics, never power.
+
+## What it deliberately does NOT do
+- **No token stipend, no token multiplier** — tokens stay earned only through play, or the
+  2x pass via the 2x Gear Tokens game pass. A season pass that prints tokens would re-create
+  the v1.1 economy bug at 399 R$.
+- **No power, no information**: no gadget unlocks, no clue reveals, no Phantom-side perks.
+  Every competitive edge stays earned in-match.
+
+## Client
+- Quests panel season block now shows **two reward lines**: `FREE TRACK:` (Amber) and
+  `PREMIUM TRACK:` (Gold), prefixed 👑 when owned and 🔒 when not. Spacing adjusted so both
+  wrapped lines fit above the quest list (portrait + landscape rects unchanged).
+- The coming-soon state teases the premium line ("buy the Winter Masquerade Pass when it goes
+  on sale") so the track sells itself before the season starts.
+
+## Season rollover note
+A pass belongs to the season it was bought for: `QuestService.seasonXp` already resets
+`Season.Premium` when a NEW season id arrives (a pre-season purchase pre-fills the id at
+receipt time, so it survives the start line). Next season = new pass purchase. Standard
+battle-pass convention; document it in the shop description when the real id goes in.
+
+## New tests
+- `tests/specs/Progression.spec.luau` — premium gate: pass required even at max tier, pass
+  alone not enough (tier still matters), free track unaffected.
+- Re-run `./scripts/test.sh` + the bot balance sim; nothing here touches match logic, but the
+  suite should stay green before merging.
+
+---
+
 # Clockwork Masquerade — v1.2 gameplay upgrade (Oct 30, 2026)
 
 The engagement pass: makes matches escalate, gives losing sides a comeback, and turns the social

@@ -6,6 +6,9 @@
 -- At nightfall: a clear majority (>= 2 votes, >= 40% of alive voters, more than the runner-up)
 -- exposes the suspect. A Phantom is frozen 5 s at night start and outlined through walls for
 -- 30 s; an innocent guest is cleared and every voter is "shaken" (x0.85 speed for 20 s).
+-- v1.2 (engagement pass): witnesses - a guest standing near a breaker when it is tampered
+-- HEARS it (location + moment, no identity). Human Phantoms must tamper unobserved or the
+-- pocket-watch crowd will triangulate them; attentive guests get real evidence to vote on.
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Match = require(Shared.Config.Match)
 local Vote = require(Shared.Logic.Vote)
@@ -22,6 +25,9 @@ local clues: { any } = {} -- { breaker, colours = {..}, found = bool, room }
 local rng = Random.new()
 local hooks = { exposed = nil :: any }
 local botVoted: { [string]: boolean } = {}
+
+-- v1.2: a guest this close to a breaker when it is tampered hears the clicking
+local WITNESS_RANGE = 16
 
 function ExposeService.onExposed(cb)
 	hooks.exposed = cb
@@ -76,6 +82,22 @@ function ExposeService.tampered(p, breaker: string)
 		end
 	end
 	table.insert(clues, { breaker = breaker, colours = Vote.clue(p.ribbon or "Cream2", others, rng:NextNumber()), found = false })
+	-- v1.2: witnesses near the breaker hear the tamper (location + time, no identity)
+	local built = ManorBuilder.get()
+	local br = built and built.breakers[breaker]
+	if br then
+		for _, q in Participants.all() do
+			if q ~= p and q.role == "Guest" and q.state == "Guest" then
+				local pos = Participants.pos(q)
+				if pos and (Vector3.new(br.x, br.y, br.z) - pos).Magnitude <= WITNESS_RANGE then
+					if q.player then
+						Net.toast(q.player, "You heard clicking at Breaker " .. breaker .. " - someone was fiddling with it...", "Amber")
+						Net.sfx(q.player, "Pickup")
+					end
+				end
+			end
+		end
+	end
 end
 
 -- A guest inspects breaker `id` (Day, within range). Returns the clue colours or nil.
@@ -108,6 +130,24 @@ function ExposeService.inspect(p, id: string)
 		Net.toast(p.player, "Breaker " .. id .. " looks fine. No clues here.", "Cream")
 	end
 	return nil
+end
+
+-- v1.2: the Rumor Mill event reveals one undiscovered clue for free.
+function ExposeService.revealOne(): boolean
+	for _, c in clues do
+		if not c.found then
+			c.found = true
+			publishClues()
+			local names = {}
+			for _, col in c.colours do
+				table.insert(names, ribbonName(col))
+			end
+			Net.toast("all", string.format("Rumor! Someone saw %s or %s glitter near Breaker %s", names[1], names[2] or names[1], c.breaker), "Amber")
+			Net.sfx("all", "Pickup")
+			return true
+		end
+	end
+	return false
 end
 
 function ExposeService.clues()

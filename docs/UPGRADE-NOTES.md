@@ -1,3 +1,28 @@
+# Clockwork Masquerade — v1.5.2 intro at the doors (Oct 30, 2026)
+
+- The story intro MOVED from session start to the **lobby → match transition**: a new server
+  `Intro` phase runs between the lobby countdown and Day 1, so the whole lobby watches the
+  manor open together instead of half-loaded players missing shots at join.
+- **First match of the session: the full skippable cinematic** (SKIP button, Space/Backspace,
+  gamepad A/B). **Later matches in the same session: a 3 s "THE DOORS OPEN" title card** — 40 s
+  of cinematic before every match would get old fast.
+- Flow: lobby ends → `MatchService.startIntro` (phase `Intro`, `Config/Match.IntroSeconds` = 45
+  s hard cap) → `Notify{kind="intro"}` → each client plays full intro or title card and fires
+  the new `introAck` action → the round starts when **every player who was in the lobby when
+  the doors opened has acked, or the cap runs out**. A stuck, slow or leaving client can never
+  hold the match hostage (`PlayerRemoving` acks on the way out; the audience is snapshotted at
+  door-open so late joiners don't extend the wait).
+- The guided first match still follows the intro for anyone with `TutorialDone ~= true` (the
+  intro callback checks it), and `IntroSeen` is still reported (`introDone`) for stats.
+- Settings > Replay story intro is unchanged (plays immediately, no ack).
+- `Hud.objective` has an "Intro" line; music simply fades during the phase (SoundManager only
+  knows Lobby/Day/Night tracks) which suits a cinematic.
+- One-line revert: in `MatchService.step`, call `startRound()` at lobby end again and drop the
+  `Intro` phase; restore the session-start gate in `init.client.luau` if the old behaviour is
+  wanted back.
+
+---
+
 # Clockwork Masquerade — v1.4.1 night shroud + Dawn Scatter (Oct 30, 2026)
 
 Approved by Murali on Oct 30. Both changes close the last two ways to identify a Phantom by
@@ -86,7 +111,7 @@ when the night ended.
 - Cloud (universe 10773325724 / place 80777289760756 only): 119/119 specs, boot OK (v1.4.1, shroud
   R15+R6 on/off, 156 scatter spots safe), real-engine bot match OK (shroud 15 parts, scatter 6 moved
   into 6 rooms), audio 26/26.
-- **Published privately as place version 20** (label v1.4.1); universe read back **PRIVATE**.
+- **Published privately as place version 20** (label v1.4.1); universe read back PRIVATE.
 - Mock-up: `../shots/v1.4.1/phantom-shroud-day-vs-night.png` (geometry render from `Logic/Shroud.layout`,
   not an in-engine capture).
 

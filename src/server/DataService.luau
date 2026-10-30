@@ -1,12 +1,14 @@
 -- Player saves via ProfileStore (session-locked DataStore, Apache-2.0, MadStudioRoblox), v2:
 -- Gear Tokens, XP/level, wins, settings (music/SFX/hints), intro + tutorial flags, class,
--- daily login streak, owned + equipped cosmetics, badges, lifetime stats, and the receipt log
--- that makes developer-product grants idempotent. Sanitised on load (Logic/SaveData) so a
--- corrupt or old (v1) save falls back to safe defaults. Bots never touch it.
+-- daily login streak, owned + equipped cosmetics, badges, lifetime stats, daily/weekly quests,
+-- season track (v1.1), the starter-pack flag, and the receipt log that makes developer-product
+-- grants idempotent. Sanitised on load (Logic/SaveData) so a corrupt or old (v1) save falls back
+-- to safe defaults. Bots never touch it.
 -- In Studio without API access ProfileStore falls back to its mock store automatically.
 -- Public mirror for the client = attributes on the Player (GearTokens, Level, XP, XPNext,
 -- Owned "id,id", Equip_<Kind>, Class, Set_Music/Set_Sfx/Set_Hints, IntroSeen, TutorialDone,
--- DailyStreak, Passes "VIP,...").
+-- DailyStreak, Played, Passes "VIP,...", Season "id:tier:premium", QuestDaily/QuestWeekly
+-- "id:progress/goal:done|...").
 local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 local BadgeService = game:GetService("BadgeService")
@@ -16,6 +18,7 @@ local Template = require(Shared.Config.DataTemplate)
 local ProgCfg = require(Shared.Config.Progression)
 local Cosmetics = require(Shared.Config.Cosmetics)
 local Gadgets = require(Shared.Config.Gadgets)
+local Quests = require(Shared.Logic.Quests)
 local SaveData = require(Shared.Logic.SaveData)
 local Progression = require(Shared.Logic.Progression)
 local Clock = require(script.Parent.Clock)
@@ -79,6 +82,15 @@ function DataService.publish(player: Player)
 	player:SetAttribute("TutorialDone", data.TutorialDone)
 	player:SetAttribute("DailyStreak", data.Daily.Streak)
 	player:SetAttribute("Played", data.Played)
+	-- v1.1: season + quests mirror (client quest tab reads these)
+	player:SetAttribute(
+		"Season",
+		string.format("%s:%d:%s", data.Season.Id, data.Season.Tier or 1, data.Season.Premium and "1" or "0")
+	)
+	player:SetAttribute("SeasonXP", data.Season.XP)
+	player:SetAttribute("StarterPackBought", data.StarterPackBought)
+	player:SetAttribute("QuestDaily", table.concat(Quests.summary(data.Quests.Daily), "|"))
+	player:SetAttribute("QuestWeekly", table.concat(Quests.summary(data.Quests.Weekly), "|"))
 	local pl = {}
 	for k, v in DataService.passes(player) do
 		if v then
@@ -234,7 +246,7 @@ local function onPlayerAdded(player: Player)
 end
 
 -- End of a match: +1 Played, +1 Wins[side] when won, + Gear Tokens (+XP = base tokens),
--- lifetime stats, badges. Returns saved, newLevel?
+-- lifetime stats, badges, season XP (v1.1). Returns saved, newLevel?
 function DataService.award(player: Player, side: string, won: boolean, tokens: number, xp: number?, stats: any?): (boolean, number?)
 	local data = DataService.get(player)
 	if not data then
@@ -264,6 +276,14 @@ function DataService.award(player: Player, side: string, won: boolean, tokens: n
 		end
 		if (stats.pages or 0) > 0 then
 			DataService.badge(player, "Archivist")
+		end
+	end
+	-- v1.1: season XP (lazy require: DataService loads before QuestService exists)
+	local ok, QuestService = pcall(require, script.Parent.QuestService)
+	if ok then
+		local newTier = QuestService.seasonXp(data, xp or tokens)
+		if newTier then
+			Net.send(player, { kind = "seasonTier", tier = newTier, season = data.Season.Id })
 		end
 	end
 	if won then

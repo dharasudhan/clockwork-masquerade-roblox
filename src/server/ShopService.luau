@@ -6,7 +6,9 @@
 --     join and when a purchase finishes; developer products granted ONLY in ProcessReceipt,
 --     idempotent through the save's receipt log (PurchaseId), with the profile saved before
 --     PurchaseGranted. v1.1 adds: starter pack flag, token chest, season pass premium flag.
---     All product ids are placeholders (0) until Gate 4/5: a 0 id is never prompted.
+--     v1.3 adds: the season pass instantly grants + auto-equips its exclusive mask
+--     (prod.instantCosmetic). All product ids are placeholders (0) until Gate 4/5: a 0 id is
+--     never prompted.
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
@@ -235,6 +237,8 @@ end
 -- ProcessReceipt (idempotent). Exposed for tests.
 -- v1.1: `prod.starter` marks the one-time starter pack; `prod.season` unlocks the season's
 -- premium track (SeasonWinter -> data.Season.Premium; tier cosmetics unlock via Progression).
+-- v1.3: `prod.instantCosmetic` grants + auto-equips its exclusive mask the moment the pass is
+-- bought, before any tier is earned.
 function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(info.PlayerId)
 	local data = player and DataService.get(player)
@@ -263,6 +267,11 @@ function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 		if data.Season.Id == "" then
 			data.Season.Id = prod.season
 		end
+		-- v1.3: instant gratification - the pass immediately grants + equips its exclusive mask
+		local gift = Cosmetics.byId(prod.instantCosmetic or "")
+		if gift then
+			data.Equipped[gift.kind] = gift.id
+		end
 	end
 	local now = Clock.wall()
 	data.Purchases[pid] = now
@@ -273,6 +282,15 @@ function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 		end
 	end
 	DataService.publish(player)
+	if prod.season then
+		-- wear the new mask right away (in-match participant, else the lobby character)
+		local p = Participants.ofPlayer(player)
+		if p then
+			ShopService.dress(p)
+		elseif player.Character then
+			ShopService.dressModel(player.Character, player, nil)
+		end
+	end
 	Net.send(player, { kind = "bought", id = key, name = prod.name, robux = true })
 	Net.sfx(player, "Tokens")
 	return Enum.ProductPurchaseDecision.PurchaseGranted

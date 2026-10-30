@@ -5,7 +5,9 @@
 --     paying saves ~1-2 hours of grinding, not 20 minutes.
 --   * Price ladder: Sterling Founder (599 R$) anchors the top; VIP (199 R$) now reads mid-tier.
 --   * First-purchase hook: Guest's Starter Trunk (49 R$, one-time, flag StarterPackBought).
---   * Season 1: Winter Masquerade Pass (399 R$, premium track; see Config/Season).
+--   * Season 1: Winter Masquerade Pass (399 R$, premium track; see Config/Season). v1.3: the pass
+--     instantly grants + auto-equips its exclusive mask via `instantCosmetic` (applied in
+--     ShopService.processReceipt).
 --   * Private-server lane: Masquerade Host pass for party hosts.
 -- Every id is still a PLACEHOLDER (0) until Gate 4/5: a 0 id shows "Coming soon" and never
 -- opens a purchase prompt. Prices are DRAFT recommendations in Robux (see store/price-list.md).
@@ -53,8 +55,9 @@ Monetization.Products = {
 	-- soft currency: ~100 tokens ≈ 5-6 matches of play (old pouch was ~3 matches at 25 R$)
 	TokenPouch = { id = 0, priceDraft = 49, name = "Pouch of 100 Gear Tokens", tokens = 100 },
 	TokenChest = { id = 0, priceDraft = 99, name = "Chest of 240 Gear Tokens", tokens = 240 }, -- ~20% bonus over 2 pouches
-	-- Season 1 premium track (Config/Season; 0 id = season inactive in the shop)
-	SeasonWinter = { id = 0, priceDraft = 399, name = "Winter Masquerade Pass", season = "winter-masquerade" },
+	-- Season 1 premium track (Config/Season; 0 id = season inactive in the shop).
+	-- v1.3: instantCosmetic = granted + auto-equipped the moment the pass is bought (pre-tier).
+	SeasonWinter = { id = 0, priceDraft = 399, name = "Winter Masquerade Pass", season = "winter-masquerade", instantCosmetic = "mask_rime" },
 }
 
 -- Order in the shop's Robux tab (starter first: highest conversion moment is the first session)

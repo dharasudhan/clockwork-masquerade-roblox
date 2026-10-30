@@ -2,12 +2,11 @@
 --   * Gear Token purchases (Action "buy"), equipping (Action "equip"), emotes (Action "emote").
 --   * Cosmetics on characters: everyone's masquerade mask, the match ribbon colour (Expose
 --     clues), lantern skin + beam colour, Electro-Wisp trail colour.
---   * Robux: game passes (VIP cosmetics bundle, 2x Gear Tokens) checked on join and when a
---     purchase finishes; developer products granted ONLY in ProcessReceipt, idempotent through
---     the save's receipt log (PurchaseId), with the profile saved before PurchaseGranted.
---     Approach compared with Corecii/PurchaseProcessor (MIT) and Roblox creator-docs (CC-BY);
---     written from scratch. All product ids are placeholders (0) until Gate 4/5: a 0 id is
---     never prompted (the client shows "Coming soon").
+--   * Robux: game passes (VIP / Sterling Founder / 2x Gear Tokens / Masquerade Host) checked on
+--     join and when a purchase finishes; developer products granted ONLY in ProcessReceipt,
+--     idempotent through the save's receipt log (PurchaseId), with the profile saved before
+--     PurchaseGranted. v1.1 adds: starter pack flag, token chest, season pass premium flag.
+--     All product ids are placeholders (0) until Gate 4/5: a 0 id is never prompted.
 local Players = game:GetService("Players")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
@@ -234,6 +233,8 @@ local function checkPasses(player: Player)
 end
 
 -- ProcessReceipt (idempotent). Exposed for tests.
+-- v1.1: `prod.starter` marks the one-time starter pack; `prod.season` unlocks the season's
+-- premium track (SeasonWinter -> data.Season.Premium; tier cosmetics unlock via Progression).
 function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(info.PlayerId)
 	local data = player and DataService.get(player)
@@ -253,6 +254,15 @@ function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 	end
 	if prod.tokens then
 		data.GearTokens += prod.tokens
+	end
+	if prod.starter then
+		data.StarterPackBought = true
+	end
+	if prod.season then
+		data.Season.Premium = true
+		if data.Season.Id == "" then
+			data.Season.Id = prod.season
+		end
 	end
 	local now = Clock.wall()
 	data.Purchases[pid] = now

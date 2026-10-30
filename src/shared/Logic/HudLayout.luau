@@ -6,8 +6,8 @@
 -- down, the phase timer is a small pill at the top centre, buttons sit LEFT of Roblox's touch
 -- jump button (PlayerModule TouchJump geometry), nothing interactive in the thumbstick half.
 -- v1.0: floor badge, tappable 3x3 hotbar (+ "?" item info), a small settings gear, lobby menu
--- (Shop / Class / Settings), the kid-friendly guide card, and modal panels (shop, settings,
--- vote, inventory, role card, item card, results, intro dialogue).
+-- (Shop / Class / Quests / Settings), the kid-friendly guide card, and modal panels (shop,
+-- settings, quests, vote, inventory, role card, item card, results, intro dialogue).
 local HudLayout = {}
 
 -- Roblox touch jump button rect (TouchJump.lua): small screens 70 px at (1,-95)(1,-90);
@@ -66,7 +66,7 @@ local function portrait(w: number, h: number, touch: boolean)
 	el.Guide = { x = el.InfoButton.x + el.InfoButton.w + 6, y = el.InfoButton.y, w = math.min(w - 60, 280 * s), h = 66 * s }
 	group.Guide = "match"
 	local mw, mh = 132 * s, 38 * s
-	for i, n in { "MenuShop", "MenuClass", "MenuSettings" } do
+	for i, n in { "MenuShop", "MenuClass", "MenuQuests", "MenuSettings" } do
 		el[n] = { x = 10, y = below + (i - 1) * (mh + 6), w = mw, h = mh }
 		group[n] = "lobby"
 	end
@@ -130,9 +130,9 @@ function HudLayout.compute(w: number, h: number, touch: boolean, console: boolea
 	local gh = 66 * s
 	el.Guide = { x = el.InfoButton.x + el.InfoButton.w + 6, y = el.InfoButton.y, w = gw, h = gh }
 	group.Guide = "match"
-	-- lobby menu: SHOP / CLASS / SETTINGS (only in the lobby)
+	-- lobby menu: SHOP / CLASS / QUESTS / SETTINGS (only in the lobby)
 	local mw, mh = 132 * s, 38 * s
-	for i, n in { "MenuShop", "MenuClass", "MenuSettings" } do
+	for i, n in { "MenuShop", "MenuClass", "MenuQuests", "MenuSettings" } do
 		el[n] = { x = X0 + 10, y = el.RoleChip.y + el.RoleChip.h + 8 + (i - 1) * (mh + 6), w = mw, h = mh }
 		group[n] = "lobby"
 	end

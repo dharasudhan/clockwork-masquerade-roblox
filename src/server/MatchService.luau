@@ -7,6 +7,10 @@
 -- the match ends early only when every guest is tagged or every Phantom leaves.
 -- Ticks every Config/Match.TickSeconds; all services step from here. Global state is
 -- published as workspace attributes (CM_Phase, CM_PhaseEndsAt, CM_Reboot, ...).
+-- v1.1: endRound applies the co-play token bonus (Config/Quests.Social) and feeds the quest
+-- system (QuestService.onMatchEnd).
+-- v1.2 (engagement pass): beginDay publishes the Rising Storm escalation attributes and the
+-- EventService scheduler steps with the match.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
@@ -15,10 +19,13 @@ local Nights = require(Shared.Config.Nights)
 local Manor = require(Shared.Config.Manor)
 local Gadgets = require(Shared.Config.Gadgets)
 local Items = require(Shared.Config.Items)
+local QuestsCfg = require(Shared.Config.Quests)
+local EscCfg = require(Shared.Config.Escalation)
 local ManorLayout = require(Shared.Logic.ManorLayout)
 local Roles = require(Shared.Logic.Roles)
 local Outcome = require(Shared.Logic.Outcome)
 local Rewards = require(Shared.Logic.Rewards)
+local Escalation = require(Shared.Logic.Escalation)
 local Participants = require(script.Parent.Participants)
 local ChestService = require(script.Parent.ChestService)
 local GridService = require(script.Parent.GridService)
@@ -34,6 +41,8 @@ local ArchiveService = require(script.Parent.ArchiveService)
 local FinaleService = require(script.Parent.FinaleService)
 local AbilityService = require(script.Parent.AbilityService)
 local ShopService = require(script.Parent.ShopService)
+local QuestService = require(script.Parent.QuestService)
+local EventService = require(script.Parent.EventService)
 local Clock = require(script.Parent.Clock)
 local Net = require(script.Parent.Net)
 
@@ -184,6 +193,11 @@ local function beginDay(orderIdx: number)
 	LightingService.apply(night.lighting.day)
 	state.dayStart = Clock.now()
 	state.overdrive = false
+	-- v1.2: Rising Storm escalation for this match-night (read by Lantern/Chase/Grid each tick)
+	local esc = Escalation.forNight(EscCfg, orderIdx)
+	workspace:SetAttribute("CM_EscDrain", esc.drainFactor)
+	workspace:SetAttribute("CM_EscSpeed", esc.phantomSpeedBonus)
+	workspace:SetAttribute("CM_RebootBoost", esc.rebootBoost)
 	setPhase("Day", secs("day", night.daySeconds))
 	Net.toast("all", string.format("Night %d of %d: %s - the Day begins", orderIdx, #Match.NightOrder, night.name), "Brass")
 	Net.sendAll({ kind = "night", no = orderIdx, count = #Match.NightOrder, name = night.name, nightKind = night.kind })
@@ -328,6 +342,18 @@ local function endRound(result)
 		end
 		GridService.cancel(p)
 	end
+	-- v1.2: escalation dials belong to the match that set them
+	workspace:SetAttribute("CM_EscDrain", nil)
+	workspace:SetAttribute("CM_EscSpeed", nil)
+	workspace:SetAttribute("CM_RebootBoost", nil)
+	-- v1.1: co-play bonus factor for matches with enough humans (Config/Quests.Social)
+	local humanPlayers = {}
+	for _, q in Participants.all() do
+		if q.player then
+			table.insert(humanPlayers, q.player)
+		end
+	end
+	local coPlay = if #humanPlayers >= QuestsCfg.Social.CoPlayMinHumans then QuestsCfg.Social.CoPlayTokenFactor else 1
 	local list = roster()
 	state.lastPhantoms = {}
 	for _, p in Participants.all() do
@@ -337,8 +363,10 @@ local function endRound(result)
 		local won = (result.winner == "Guests" and p.role == "Guest") or (result.winner == "Phantoms" and p.role == "Phantom")
 		p.won = won
 		if p.player then
-			local tokens, xp = Rewards.tokens(p.stats, won, Gadgets.Rewards, ShopService.tokenMultiplier(p.player))
+			local tokens, xp = Rewards.tokens(p.stats, won, Gadgets.Rewards, ShopService.tokenMultiplier(p.player), coPlay)
 			local saved, newLevel = DataService.award(p.player, p.role, won, tokens, xp, p.stats)
+			-- v1.1: quests (daily/weekly), friend detection, payouts + notifications
+			QuestService.onMatchEnd(p.player, p.stats, won, humanPlayers)
 			if won and p.role == "Guest" and result.reason and FinaleService.active() and p.inRingAt and Clock.now() - p.inRingAt < 1.5 then
 				DataService.badge(p.player, "OverdriveMaster")
 			end
@@ -403,6 +431,7 @@ function MatchService.step(dt: number)
 		AbilityService.step(dt)
 		ArchiveService.step(dt)
 		FinaleService.step(dt)
+		EventService.step(dt)
 		local night = state.night
 		if state.phase == "Day" then
 			local len = math.max(1, state.endsAt - state.dayStart)
@@ -527,8 +556,13 @@ local function onCharacter(player: Player, char: Model)
 	if not p or state.phase == "Results" or state.phase == "Lobby" then
 		-- lobby: wear your masquerade mask on the terrace too
 		task.defer(function()
-			char:WaitForChild("Head", 5)
-			ShopService.dressModel(char, player, nil)
+			-- the character can be gone by now (respawn / leave): skip instead of erroring
+			local ok = pcall(function()
+				char:WaitForChild("Head", 5)
+			end)
+			if ok and char.Parent ~= nil then
+				ShopService.dressModel(char, player, nil)
+			end
 		end)
 		return
 	end
@@ -550,6 +584,8 @@ function MatchService.init()
 	LiftService.init()
 	ShopService.init()
 	ExposeService.init()
+	QuestService.init()
+	EventService.init()
 	GridService.onTampered(ExposeService.tampered)
 	GridService.onInspect(ExposeService.inspect)
 	ChaseService.setModifiers(FinaleService.phantomSpeed, FinaleService.carryFactor, ArchiveService.barrier)

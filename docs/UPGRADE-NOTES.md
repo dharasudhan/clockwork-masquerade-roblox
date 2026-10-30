@@ -27,6 +27,8 @@ deduction layer into a real information game. All tuning lives in `Config/Escala
   (location + moment, no identity — `ExposeService.tampered`). Human Phantoms must now tamper
   unobserved or pocket-watch players will triangulate them; attentive guests get real evidence.
 - New `ExposeService.revealOne()` backs the Rumor Mill event.
+- The first-visit story intro now teaches the tell: a new shot (`src/client/Intro.luau`) has
+  Bellows warn "If you HEAR a breaker die nearby, someone is close! Remember where you stood."
 
 ## Chase feel
 - **Grazed**: when a Phantom swipe just misses (nearest guest within tag range +3.5), that

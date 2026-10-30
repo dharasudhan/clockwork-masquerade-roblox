@@ -242,6 +242,8 @@ end
 -- premium track (SeasonWinter -> data.Season.Premium; tier cosmetics unlock via Progression).
 -- v1.3: `prod.instantCosmetic` grants + auto-equips its exclusive mask the moment the pass is
 -- bought, before any tier is earned.
+-- v1.6.3: instantCosmetic now applies to ANY product (incl. in-match Robux cosmetic packs),
+-- and the dress-refresh below runs for any instantCosmetic purchase, not only season passes.
 function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 	local player = Players:GetPlayerByUserId(info.PlayerId)
 	local data = player and DataService.get(player)
@@ -275,17 +277,18 @@ function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 			data.Season.Tier = 1
 		end
 		data.Season.Premium = true
-		-- v1.3: instant gratification - the pass immediately grants + equips its exclusive mask.
-		-- v1.4 review fix: the gift goes into Owned (kept for good, like any bought cosmetic), and
-		-- premium rewards for tiers already reached unlock at once.
-		local gift = Cosmetics.byId(prod.instantCosmetic or "")
-		if gift then
-			data.Owned[gift.id] = true
-			data.Equipped[gift.kind] = gift.id
-		end
+		-- v1.4 review fix: premium rewards for tiers already reached unlock at once.
 		for _, id in Progression.seasonRewards(Cosmetics.Items, data.Season.Id, data.Season.Tier or 1, true) do
 			data.Owned[id] = true
 		end
+	end
+	-- v1.3/v1.6.3: instant gratification - any product with `instantCosmetic` grants +
+	-- auto-equips it the moment it is bought. The gift goes into Owned (kept for good, like
+	-- any bought cosmetic). Works for season passes AND v1.6.3 in-match Robux cosmetics.
+	local gift = Cosmetics.byId(prod.instantCosmetic or "")
+	if gift then
+		data.Owned[gift.id] = true
+		data.Equipped[gift.kind] = gift.id
 	end
 	local now = Clock.wall()
 	data.Purchases[pid] = now
@@ -296,8 +299,8 @@ function ShopService.processReceipt(info): Enum.ProductPurchaseDecision
 		end
 	end
 	DataService.publish(player)
-	if prod.season then
-		-- wear the new mask right away (in-match participant, else the lobby character)
+	if gift then
+		-- wear the new cosmetic right away (in-match participant, else the lobby character)
 		local p = Participants.ofPlayer(player)
 		if p then
 			ShopService.dress(p)

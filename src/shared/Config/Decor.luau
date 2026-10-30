@@ -143,6 +143,10 @@ Decor.Themes = {
 	laundry = T({ wall = "Cream2", wallMat = "CeramicTiles", wain = "SkyBlue", wainMat = "CeramicTiles", floor = "Tile", floorMat = "CeramicTiles",
 		p = { kind = "tiles", a = "Cream2", b = "Steel", cell = 3 }, ceil = "Ivory", ceilMat = "SmoothPlastic", light = { 220, 235, 255 }, trim = "Silver",
 		kit = "laundry", art = { "clock", "botanical" }, artCount = 2 }),
+	-- v1.6.2 Grotto Baths: teal ceramic bath-house under the lawn, brass fittings, bubble glow
+	grotto = T({ wall = "TealDeep", wallMat = "CeramicTiles", wain = "Teal", wainMat = "CeramicTiles", floor = "Tile", floorMat = "CeramicTiles",
+		p = { kind = "tiles", a = "TealDeep", b = "SkyBlue", cell = 4 }, ceil = "TealDeep", ceilMat = "CeramicTiles", light = "Bubble", trim = "Brass",
+		kit = "grotto", art = { "sconce", "botanical" }, artCount = 3, plants = 2 }),
 }
 
 -- Art pieces: the procedural look (ArtGui) is always available. When Murali uploads the original

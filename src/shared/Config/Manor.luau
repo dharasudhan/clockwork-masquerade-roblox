@@ -90,6 +90,15 @@ Manor.Rooms = {
 	{ id = "coalStore", name = "Coal Store", level = -1, x0 = -42, x1 = 12, z0 = 30, z1 = 54, lights = 2, chests = 2, theme = "coal" },
 	{ id = "pumpRoom", name = "Pump Room", level = -1, x0 = 30, x1 = 42, z0 = 30, z1 = 54, lights = 1, chests = 1, theme = "pump" },
 	{ id = "laundry", name = "Laundry", level = -1, x0 = 42, x1 = 90, z0 = 30, z1 = 66, lights = 2, chests = 1, theme = "laundry" },
+	-- v1.6.2 Grotto Baths: the castle's swimming pool, under the east lawn (the grass slabs
+	-- above already seal it invisibly; two archways in from the Coal Store, no dead-end).
+	{ id = "grotto", name = "Grotto Baths", level = -1, x0 = -42, x1 = 12, z0 = 54, z1 = 78, lights = 2, chests = 1, theme = "grotto" },
+}
+
+-- v1.6.2: water hazards - Dawn Scatter spots must never land in the pool (Logic/Scatter reads
+-- these as avoid points; radius from the pool centre covers the whole basin + rim).
+Manor.Pools = {
+	{ room = "grotto", x = -21, z = 66, r = 16 },
 }
 
 Manor.Doors = {
@@ -178,6 +187,11 @@ Manor.Doors = {
 	{ a = "pumpRoom", b = "laundry", at = 42, width = 8 },
 	{ a = "generator", b = "laundry", at = 66, width = 8 },
 	{ a = "laundry", b = "liftB", at = 48, width = 8 },
+	-- v1.6.2: two 8-stud archways into the Grotto Baths (two escape points, no dead-end - the
+	-- Tower scatter lesson). A cellarStair door was tried and dropped: its posts landed
+	-- coplanar with the stairwell's top-landing fill and the doorway opened into solid fill.
+	{ a = "coalStore", b = "grotto", at = -30, width = 8 },
+	{ a = "coalStore", b = "grotto", at = 0, width = 8 },
 }
 
 -- Breaker terminals (6, spread over B1 / G / 1F / 2F / Tower; each night uses 5 of them): the

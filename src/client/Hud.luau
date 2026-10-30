@@ -680,7 +680,7 @@ function Hud.update()
 	elseif attrs.CarryKey then
 		obj = "You have a KEY! Run to the Exit Console (Ballroom)!"
 	elseif (attrs.Pages or 0) > 0 and phase == "Night" then
-		obj = "Bring your page to the Projector (Library)!"
+		obj = "Bring your page to the Projector (Royal Library)!"
 	elseif attrs.FrozenUntil and now < attrs.FrozenUntil then
 		obj = "FROZEN!"
 	end

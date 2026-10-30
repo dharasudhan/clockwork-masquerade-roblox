@@ -1,4 +1,6 @@
-# The Clockwork Masquerade: Mystery at Sterling Manor (Roblox)
+# The Clockwork Masquerade: Mystery at Sterling Castle (Roblox)
+
+(Formerly "Mystery at Sterling Manor"; the manor got its castle dress-up in v1.5.1. Room ids and code names are unchanged.)
 
 Ottran Studios · Rojo + Luau · **M1.1 — "enormous manor" update** of the M1 core-loop slice (built Oct 28 2026
 from Murali's playtest: "the time is too less for the game. have more items and more rooms, make the mansion
@@ -25,6 +27,12 @@ Secular 1920s inventor / steampunk-neon look, family-safe, **no ghosts** (delibe
 > premium XP rounding, tier-sorted reward lines, night Phantom ribbon hidden). All Robux ids still **0**; season
 > still unscheduled. Bot-only balance (30 matches): **50 % guest wins**. Build label `v1.4`.
 
+> **v1.6.3 (Oct 30 2026)** — merged from Murali's branch `upgrade/v1.6` (+ PR #4's server intro phase) with Hark's review
+> fixes (see `docs/UPGRADE-NOTES.md`): Castle Sterling renames + facade crown/towers/banners + gatehouse, story intro at
+> the doors (Intro phase, ack gate, 45 s cap), Hall of Fame board (top 10 all-time wins, OrderedDataStore), role-safe
+> mid-match scoreboard (Tab / L3 / Settings), Grotto Baths pool room on B1 (scatter-safe), four in-match cosmetic Robux
+> specials (ids **0** = Coming soon). Bot-only balance (44 matches): **48 % guest wins**. Build label `v1.6.3`.
+
 ## Streaming + performance budget (v1.0 RC)
 
 `Workspace.StreamingEnabled = true` (both project files): **StreamingTargetRadius 256**, **StreamingMinRadius 96**,
@@ -45,7 +53,7 @@ StreamingTargetRadius to 160. Watch MicroProfiler + Developer Console (Memory �
 
 Roblox target: universe `10773325724`, root place `80777289760756` (Murali's private experience, formerly
 "GhostMansionTest", repurposed). **Private. No Robux products.** Never touch universe `10773325904` (Ghost Mansion) —
-`scripts/luau_exec.py` refuses it. Build label: workspace attribute `CM_Version` = `M1.1`.
+`scripts/luau_exec.py` refuses it. Build label: workspace attribute `CM_Version` (now `v1.6.3`).
 
 ## M1.1 rules and numbers (all in `src/shared/Config/*`, data-driven)
 
@@ -187,6 +195,12 @@ Max Players **10**; Enable Studio Access to API Services (to test saves in Studi
 until Gate 6; rename the experience from "GhostMansionTest" when Murali wants.
 
 ## Status
+
+**Oct 30 2026 — v1.6.3** (Hall of Fame, scoreboard, Grotto Baths, in-match specials, Castle Sterling, intro at the
+doors): local 140/140 specs, place verify 56/56, engine smoke 0 failures (z-fight scan 3,373 boxes clean). Balance 44
+bot matches over 4 seeds: 21/44 = 48 % guest wins. Cloud (universe 10773325724 only): 141/141 specs, boot OK (v1.6.3),
+real-engine bot match OK, audio 26/26. **Published privately as place version 23**;
+universe read back PRIVATE. Renders/mock-ups: `../shots/v1.6/` (not in-engine captures).
 
 **Oct 30 2026 — v1.4.1** (night shroud + Dawn Scatter): local 118/118 specs, place verify 56/56, engine smoke 0
 failures (every Phantom shrouded at night incl. bots, shroud off only inside the clock-strike blackout, everyone

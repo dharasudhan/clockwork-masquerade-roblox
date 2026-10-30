@@ -10,6 +10,12 @@
 --   Vote      Expose vote at the Evidence Board: everyone in the match with their ribbon colour,
 --             vote counts and the clues found today
 --   Items     what each carried item does (icon, name, count, one-line tip)
+--   Score     v1.6.1 mid-match scoreboard (Tab / L3, or Settings > Scoreboard on touch): name,
+--             ribbon, In play / Wisp, chests; repairs only on the Results screen (role-safe,
+--             see Logic/Score). Refreshes live while open.
+--   Specials  v1.6.3 in-match Robux specials (Settings > Robux specials): cosmetic-only packs
+--             flagged `inMatch`; every id is 0 until Murali creates the products, so each one
+--             shows "Coming soon" and never opens a purchase prompt.
 local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
 local ContextActionService = game:GetService("ContextActionService")
@@ -23,6 +29,7 @@ local Match = require(Shared.Config.Match)
 local QuestsCfg = require(Shared.Config.Quests)
 local SeasonCfg = require(Shared.Config.Season)
 local SeasonLogic = require(Shared.Logic.Season)
+local Score = require(Shared.Logic.Score)
 local Hud = require(script.Parent.Hud)
 local State = require(script.Parent.State)
 local Input = require(script.Parent.Input)
@@ -360,6 +367,110 @@ function builders.Settings()
 	button("OpenQuests", "📜 Quests & Season", "Copper", g, function()
 		Menus.open("Quests")
 	end).LayoutOrder = 7
+	-- v1.6.1 / v1.6.3: touch players reach the scoreboard and the in-match specials here
+	button("OpenScore", "📊 Scoreboard", "Copper", g, function()
+		Menus.open("Score")
+	end).LayoutOrder = 8
+	button("OpenSpecials", "💎 Robux specials", "Velvet", g, function()
+		Menus.open("Specials")
+	end).LayoutOrder = 9
+end
+
+-- v1.6.1 mid-match scoreboard (workspace attribute CM_Score, Logic/Score). Rows are
+-- { rank, name, ribbon, state, counts } so the panel can lay them out in columns (a single
+-- long text line shrinks to ~9 px on a portrait phone).
+function Menus.scoreRows(): ({ any }, boolean)
+	local phase = workspace:GetAttribute("CM_Phase") or "Lobby"
+	local reveal = phase == "Results"
+	local rows = {}
+	for i, e in Score.decode(workspace:GetAttribute(Score.Attribute)) do
+		local counts = string.format("📦 %d", e.chests)
+		if reveal then
+			counts ..= string.format("  🔧 %d", e.repairs)
+		end
+		table.insert(rows, { rank = i, name = e.name, ribbon = e.ribbon, state = e.state, counts = counts })
+	end
+	return rows, reveal
+end
+
+function builders.Score()
+	local rows, reveal = Menus.scoreRows()
+	title.Text = if reveal then "FINAL SCORES" else "SCOREBOARD"
+	if #rows == 0 then
+		local l = Hud.label("Empty", content, "No match running - the scoreboard opens when the doors do!")
+		l.ZIndex = 12
+		return
+	end
+	local g = grid(content, 1, 30)
+	g.Size = UDim2.fromScale(1, 0.88)
+	for i, row in rows do
+		local f = Instance.new("Frame")
+		f.Name = "Row" .. i
+		f.LayoutOrder = i
+		f.ZIndex = 12
+		f.BorderSizePixel = 0
+		f.BackgroundColor3 = rgb("TealDeep")
+		f.BackgroundTransparency = if i % 2 == 0 then 1 else 0.75
+		f.Parent = g
+		local sw = Instance.new("Frame")
+		sw.Name = "Ribbon"
+		sw.ZIndex = 13
+		sw.BorderSizePixel = 0
+		sw.Size = UDim2.new(0, 8, 0.7, 0)
+		sw.Position = UDim2.new(0, 4, 0.15, 0)
+		local ok, c = pcall(rgb, row.ribbon)
+		sw.BackgroundColor3 = if ok and typeof(c) == "Color3" then c else rgb("Cream")
+		sw.Parent = f
+		-- one fixed text size for every row (TextScaled per label made each row a different
+		-- size); long names end in "..." instead of shrinking
+		local cols = {
+			{ "Name", string.format("%d. %s", row.rank, row.name), 0.04, 0.46, Enum.TextXAlignment.Left, "Cream" },
+			{ "State", row.state, 0.5, 0.2, Enum.TextXAlignment.Center, if row.state == "Wisp" then "TealNeon" else "Cream" },
+			{ "Counts", row.counts, 0.7, 0.3, Enum.TextXAlignment.Right, "Brass" },
+		}
+		for _, col in cols do
+			local l = Hud.label(col[1], f, col[2])
+			l.ZIndex = 13
+			l.Position = UDim2.new(col[3], 6, 0.1, 0)
+			l.Size = UDim2.new(col[4], -8, 0.8, 0)
+			l.TextXAlignment = col[5]
+			l.TextColor3 = rgb(col[6])
+			l.TextScaled = false
+			l.TextSize = 14
+			l.TextTruncate = Enum.TextTruncate.AtEnd
+		end
+	end
+	local hint = Hud.label("Hint", content, if reveal then "📦 chests found  ·  🔧 breakers fixed" else "📦 chests found  ·  repairs are revealed at the end")
+	hint.ZIndex = 12
+	hint.Size = UDim2.fromScale(1, 0.09)
+	hint.Position = UDim2.fromScale(0, 0.91)
+	hint.TextColor3 = rgb("TealNeon")
+end
+
+-- v1.6.3 in-match Robux specials: cosmetic only, "Coming soon" while the ids are 0
+function builders.Specials()
+	title.Text = "ROBUX SPECIALS"
+	-- one column + wrapped text: product names run to 40+ characters, which TextScaled alone
+	-- would shrink to ~6 px in a half-width cell on a portrait phone
+	local g = grid(content, 1, 56)
+	local n = 0
+	for i, key in Monetization.inMatchProducts() do
+		if robuxHidden(key) then
+			continue
+		end
+		local def = Monetization.Products[key]
+		n += 1
+		local status = if def.id == 0 then "Coming soon" else "R$ " .. def.priceDraft
+		local b = button("Special_" .. key, string.format("%s\n%s", def.name, status), "Velvet", g, function()
+			promptRobux("product", key)
+		end)
+		b.LayoutOrder = i
+		b.TextWrapped = true
+	end
+	if n == 0 then
+		local l = Hud.label("Empty", content, "No specials right now")
+		l.ZIndex = 12
+	end
 end
 
 -- quest/season mirror (server -> player attributes, see DataService.publish):
@@ -686,6 +797,25 @@ local function refreshQuests()
 	end)
 end
 Menus._refreshQuests = refreshQuests
+
+-- v1.6.1: the scoreboard redraws when the standings change (at most once a second)
+local scoreQueued = false
+local function refreshScore()
+	if State.panel ~= "Score" or scoreQueued then
+		return
+	end
+	scoreQueued = true
+	task.defer(function()
+		scoreQueued = false
+		if State.panel == "Score" then
+			Menus.open("Score")
+		end
+	end)
+end
+Menus._refreshScore = refreshScore
+pcall(function()
+	workspace:GetAttributeChangedSignal(Score.Attribute):Connect(refreshScore)
+end)
 
 function Menus.watchQuests(player: Player)
 	for _, a in { "QuestDaily", "QuestWeekly", "Season", "SeasonXP", "GearTokens" } do

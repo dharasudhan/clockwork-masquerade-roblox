@@ -1,8 +1,11 @@
--- The story intro ("Break In"-style): a skippable cinematic of camera pans around Sterling
--- Manor with dialogue bubbles from Bellows the butler and Professor Sterling, the inventor.
--- Plays at the START OF EVERY SESSION since v1.4 (before v1.4: first visit only) and from
--- Settings > Replay story intro. The IntroSeen attribute is still sent to the server for
--- stats, but it no longer gates the cinematic.
+-- The story intro ("Break In"-style): a skippable cinematic of camera pans around Castle
+-- Sterling with dialogue bubbles from Bellows the butler and Professor Sterling, the inventor.
+-- v1.5.2: plays AT THE DOORS - the server runs an Intro phase between the lobby and Day 1 and
+-- every client watches as the match begins (first match of the session gets the full
+-- cinematic, later matches a 3 s title card). Before v1.5.2 it played at session start (v1.4
+-- made it every-session; earlier it was first-visit only). Still replayable from
+-- Settings > Replay story intro. The client acks the server ("introAck") when done; the
+-- round starts when everyone present at the doors has acked or Match.IntroSeconds runs out.
 -- Step-driven (Intro.step(dt) from Heartbeat) so it is deterministic and testable headless.
 -- Skip: the SKIP button, gamepad B / A, keyboard Space / Backspace.
 local ContextActionService = game:GetService("ContextActionService")
@@ -24,7 +27,7 @@ local Speakers = {
 -- simple words for young players).
 Intro.Shots = {
 	{ from = Vector3.new(0, 34, 178), to = Vector3.new(0, 24, 150), look = Vector3.new(0, 22, 40), seconds = 5, speaker = "Bellows",
-		line = "Welcome to Sterling Manor! I am Bellows, the butler." },
+		line = "Welcome to Sterling Castle! I am Bellows, the butler." },
 	{ from = Vector3.new(-26, 14, 96), to = Vector3.new(10, 9, 76), look = Vector3.new(-9, 7, 60), seconds = 5, speaker = "Sterling",
 		line = "And I'm Professor Sterling, the inventor! Welcome to my clockwork masquerade!" },
 	{ from = Vector3.new(-24, 13, 56), to = Vector3.new(4, 10, 42), look = Vector3.new(-10, 5, 30), seconds = 5, speaker = "Bellows",

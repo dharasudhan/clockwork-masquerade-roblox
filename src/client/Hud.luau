@@ -580,6 +580,9 @@ function Hud.buttonsFor(phase: string, who: string?, attrs, selected: string?): 
 end
 
 function Hud.objective(phase: string, who: string?): string
+	if phase == "Intro" then
+		return "The castle doors are opening..." -- v1.5.2: lobby -> match cinematic
+	end
 	if phase == "Lobby" then
 		return "The masquerade begins soon - bots fill up to 6 guests"
 	elseif phase == "Results" then
@@ -680,7 +683,7 @@ function Hud.update()
 	elseif attrs.CarryKey then
 		obj = "You have a KEY! Run to the Exit Console (Ballroom)!"
 	elseif (attrs.Pages or 0) > 0 and phase == "Night" then
-		obj = "Bring your page to the Projector (Library)!"
+		obj = "Bring your page to the Projector (Royal Library)!"
 	elseif attrs.FrozenUntil and now < attrs.FrozenUntil then
 		obj = "FROZEN!"
 	end
@@ -699,7 +702,7 @@ function Hud.update()
 		chipText, chipColor = if phase == "Day" then "PHANTOM (secret)" else "PHANTOM", "Velvet"
 	elseif who == "Wisp" or who == "Bubble" then
 		chipText, chipColor = "ELECTRO-WISP", "Iron"
-	elseif phase ~= "Lobby" then
+	elseif phase ~= "Lobby" and phase ~= "Intro" then
 		chipText = "SPECTATING"
 	else
 		chipText = string.format("LV %d  ⚙ %d", attrs.Level or 1, attrs.GearTokens or 0)

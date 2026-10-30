@@ -1,3 +1,166 @@
+# Clockwork Masquerade — v1.6.3 (Oct 30, 2026): Hall of Fame, scoreboard, Grotto Baths, in-match specials
+
+Murali's branch `upgrade/v1.6` (head 4ebd8cd, 11 commits on top of main 180dceb) carried v1.5.1 Castle Sterling,
+v1.6.1 Hall of Fame + scoreboard, v1.6.2 Grotto Baths and v1.6.3 in-match Robux specials. Hark reviewed every file,
+merged it into main as a sync commit and fixed what the push left out (below). Build label `v1.6.3`.
+The branch's own copy of this file had been cut to the v1.5.1 + v1.4.1 sections and stopped mid-way at "## Tests";
+main's full history is kept below and the branch notes are folded in.
+
+## What v1.6 contains
+
+- **v1.5.1 Castle Sterling** (display only, every room/door id unchanged): Dining Hall → Banquet Hall, Trophy Room →
+  Armory, Library → Royal Library, Music Room → Minstrel Hall; "Royal Library" in the HUD/Guide/Nights objectives;
+  intro line 1 "Welcome to Sterling Castle!"; title board line 2 "Mystery at Sterling Castle"; castle crown on the facade
+  (crenellated parapet + 13 merlons on the column tops, velvet banners on brass poles, two 40-stud flank towers with
+  merlons and warm arrow slits) and a gatehouse on the terrace's south edge ("CASTLE STERLING / by invitation only").
+- **v1.5.2 intro at the doors** (from PR #4, see its section below): server `Intro` phase between the lobby and Day 1,
+  full cinematic on the first match of a session, a 3 s "THE DOORS OPEN" card after that, `introAck` gate with a 45 s cap.
+- **v1.6.1 Hall of Fame**: a walnut board on the terrace's west rail showing the top 10 all-time match wins
+  (OrderedDataStore `CM_FameWins_v1`, key `u<userId>`, value = Guest + Phantom wins from the ProfileStore save).
+  Written at every match end for human players (skips no-op writes and Studio test ids ≤ 0), read every 120 s
+  (first read 8 s after boot), display names from one batched `UserService:GetUserInfosByUserIdsAsync` call cached
+  10 min. Names clamp to 14 characters + "…"; empty board says "No champions yet - win a match to be the first!".
+  Every DataStore/web call is pcall'd.
+- **v1.6.1 scoreboard**: one workspace attribute `CM_Score` ("name~ribbon~state~repairs~chests|…", max 12, Logic/Score),
+  published once a second during Day/Night and with final numbers at Results; panel on Tab / gamepad L3 / Settings >
+  Scoreboard (touch). Columns: ribbon swatch, name, In play / Wisp, chests (+ repairs at Results), fixed 14 px text.
+- **v1.6.2 Grotto Baths**: a 22×13-stud wading pool room on B1 (x -42..12, z 54..78, under the front lawn), two 8-stud
+  archways from the Coal Store (no dead end), teal ceramic theme, brass rim, glowing glass water, lion-head fountain,
+  ladder, loungers, towel rack, 1 chest spot (dry corner). `Manor.Pools` (centre, avoid radius 16, basin half-size).
+- **v1.6.3 in-match Robux specials** (cosmetic only, all ids **0** = "Coming soon", no prompt): Phantom Regent Mask 99,
+  Midnight Lantern 79, Phantom Shimmer Trail 99, Masquerade Emotes (Teacup Toast + Applause) 49. `instantCosmetic`
+  now grants + auto-equips for any product. Listed in the shop's Robux tab and in Settings > Robux specials.
+
+## Bugs found in the push and fixed (Hark, Oct 30)
+
+1. **Intro would never play.** The client stopped playing the intro at join and waited for a server `intro` notify,
+   but `MatchService` on the branch had no Intro phase (the v1.5.2 server half lives only on PR #4's branch, which is
+   not an ancestor of v1.6). Folded in PR #4's `startIntro` / `introAck` / leaver-ack and the Hud "Intro" line; Guide
+   shows nothing and the role chip is not "SPECTATING" during the Intro phase.
+2. **Hall of Fame not wired.** `FameService` looked for `Map.Lobby.FameBoard`, which nothing built, and
+   `FameService.record` was only called at boot. Added the board to the lobby build and a record call at match end.
+3. **Scoreboard not wired.** Nothing wrote `CM_Score` and there was no "Score" panel (Tab/L3 opened nothing). Added the
+   server publish, the panel, a touch entry in Settings and the L3 glyph.
+4. **Scoreboard role leak.** Only Guests can repair breakers (GridService), so a live repair count would clear every
+   repairing guest for the whole server and narrow the Expose vote. Repairs are sent as 0 until Results; the public
+   state is only "In play" / "Wisp" (`Score.entriesFor`, specs + engine checks).
+5. **Night purchase would out a Phantom.** `processReceipt` re-dressed the buyer at once; a shrouded Phantom buying a
+   mask at night would get its own look back. Re-dress now happens only when safe (`ShopService.safeToDress`: lobby,
+   intro, results, or by day in guest form); otherwise `dressPending` is applied at the dawn swap.
+6. **Grotto Baths had no pool.** The theme named kit "grotto" but no kit existed, so the room was empty. Built
+   `Kits.grotto` from `Manor.Pools` (all non-colliding, like every furnishing, so nobody can get stuck).
+7. **v1.5.1 castle geometry missing.** The branch notes describe flank towers, parapet, banners and a gatehouse in
+   `ManorBuilder.luau`, but that file was never pushed and the title board still said "Sterling Manor". Built them.
+   Deviation: the flank towers stand at x = ±36, z = 69.5 (in front of the 1st-floor corners), not x = ±38, z = 62 —
+   that spot sits under the Tea Salon / Linen Room overhang and would cut through their walls.
+8. **Alcohol reference.** "Crystal Toast 🥂" became "Teacup Toast ☕" (family-friendly; keeps the maturity
+   questionnaire clean).
+9. **Small:** specials list one column with wrapped text (40+ character names shrank to ~6 px in half-width cells);
+   gamepad glyph map was missing `score`.
+
+Checked and fine: v1.4.1 shroud + Dawn Scatter untouched (ShroudService, Logic/Shroud, Logic/Scatter core,
+ChaseService, Blackout identical to main; engine smoke + cloud bot match exercise both); no main code reverted (the
+branch's 11 commits only touch the 20 files listed in the PR, every other file is byte-identical to main).
+
+## Grotto Baths safety (Dawn Scatter)
+
+- Valid landing room: 2 scatter spots (x -1.5, z 60 / 72), both ≥ 16 studs from the pool centre and > 2 studs from
+  the basin; centre and west spots are excluded by the pool avoid radius. Real-engine boot check: floor under every
+  spot, nothing solid where a character lands, floor under the water, no grotto decor collides.
+- No chest spot, breaker, key, projector or console in or near the basin; both doorways open onto dry floor.
+
+## Tests
+
+- Local `./scripts/test.sh`: 140/140 unit specs (new `V16.spec`: role-safe scoreboard, pool/scatter/chest/door safety,
+  every pass/product/badge id 0, id 0 never resolves, specials cosmetic-only, build label + intro cap), place verify
+  56/56, engine smoke 0 failures (new: Intro phase waits for the ack, Hall of Fame board paint + empty state, gatehouse
+  under the intro camera, castle crown, grotto pool non-colliding, night purchase not worn over the shroud and worn at
+  dawn, scoreboard role-safe at night + final scores at Results, Score and Specials panels, id-0 special never prompts).
+  z-fight scan: 3,373 boxes, 0 problems.
+- Balance: 44 bot-only matches over 4 independent seeds (`BAL_SEED`): 6/11, 6/11, 5/11, 4/11 → **21/44 = 48 % guest wins**.
+- Cloud (universe 10773325724 / place 80777289760756 only): unit 141/141, boot OK (v1.6.3, 158 scatter spots safe, 2 in
+  the grotto, real-engine z-fight clean), real-engine bot match OK (scoreboard 6 entries role-safe), audio 26/26.
+- **Published privately as place version 23** (Published; versions 21-22 were Saved test uploads). Universe read back
+  `visibility: PRIVATE` (Open Cloud v2), experience still named "GhostMansionTest", voice chat on, server size 8.
+
+## For Murali
+
+- Create in Creator Hub when ready (Gate 4/5): the four v1.6.3 developer products (names/prices above) and send the ids;
+  until then they show "Coming soon". Nothing was created or priced.
+- Real-phone check: scoreboard (Settings > Scoreboard), Robux specials list, Hall of Fame board, gatehouse, Grotto Baths.
+- PR #4 is closed as merged-via-sync (its server half is in main now); branches are kept.
+
+---
+
+# Clockwork Masquerade — v1.5.1 Castle Sterling (Oct 30, 2026)
+
+The manor gets its castle dress-up (cosmetic only — zero changes to rooms, collision, spawns,
+items, breakers or any match logic). Approved direction from Murali's five questions: castle
+skin now, swimming pool (Grotto Baths) later as v1.5.4.
+
+## New geometry (all in `server/ManorBuilder.luau`)
+
+- **Flank towers** flanking the facade at x = ±38, z = 62: walnut plinths buried in the lawn,
+  cream marble shafts (40 studs, tops at y = 40), walnut parapets and 6 merlons each, plus two
+  warm-neon arrow-slit windows facing the terrace.
+- **Crenellated parapet** across the portico roofline (58 studs wide at z = 61.9) with 13
+  merlons; it seats 0.1 into the column tops (y = 35.5 plane) and the merlons 0.05 into the
+  parapet, so no two visible faces share a plane (Coplanar stays clean).
+- **Velvet banners** hanging on brass poles between the facade columns (x = ±13.25).
+- **Gatehouse** on the terrace's south edge (z = 155): twin towers with plinths, parapets and
+  merlons, a connecting arch with 9 merlons and a "CASTLE STERLING / by invitation only" sign
+  (SurfaceGui on the arch's north face). The brass rail and invisible boundary pass through
+  the towers unchanged — nobody can leave the terrace, nothing spawns or prompts there.
+- Part-count: well inside the 6000 budget (engine smoke + boot check assert 300–6000).
+
+## Renames (display only — every room/door id is untouched)
+
+- Dining Hall → **Banquet Hall**, Trophy Room → **Armory**, Library → **Royal Library**,
+  Music Room → **Minstrel Hall** (`Config/Manor.luau` room `name` fields; nameplates, HUD and
+  minimap read them automatically).
+- Objective/guide strings follow: "Projector (Royal Library)" in `Hud.luau`, `Guide.luau` and
+  `Config/Nights.luau`.
+- Title board line 2: "Mystery at Sterling **Castle**"; intro shot 1: "Welcome to Sterling
+  **Castle**!"; build label v1.5.1.
+- Left alone on purpose: the "Welcome to Sterling Manor" badge display name in
+  `Config/Progression.luau` (badge ids are all 0 until Gate 4/5 — the real name is set in the
+  Creator Dashboard when the badge is created) and "Sterling Manor" in code comments.
+
+## Before merge (Murali)
+
+- `./scripts/test.sh`: the Coplanar pass over every part is the one to watch (all new parts
+  embed instead of touch); place verify and the engine smoke part budget (300–6000) should
+  pass unchanged otherwise.
+- Eyeball in Studio: the facade crown + banners from the spawn path, and the gatehouse sign
+  from the terrace (it faces the spawn).
+
+---
+
+# Clockwork Masquerade — v1.5.2 intro at the doors (Oct 30, 2026)
+
+- The story intro MOVED from session start to the **lobby → match transition**: a new server
+  `Intro` phase runs between the lobby countdown and Day 1, so the whole lobby watches the
+  manor open together instead of half-loaded players missing shots at join.
+- **First match of the session: the full skippable cinematic** (SKIP button, Space/Backspace,
+  gamepad A/B). **Later matches in the same session: a 3 s "THE DOORS OPEN" title card** — 40 s
+  of cinematic before every match would get old fast.
+- Flow: lobby ends → `MatchService.startIntro` (phase `Intro`, `Config/Match.IntroSeconds` = 45
+  s hard cap) → `Notify{kind="intro"}` → each client plays full intro or title card and fires
+  the new `introAck` action → the round starts when **every player who was in the lobby when
+  the doors opened has acked, or the cap runs out**. A stuck, slow or leaving client can never
+  hold the match hostage (`PlayerRemoving` acks on the way out; the audience is snapshotted at
+  door-open so late joiners don't extend the wait).
+- The guided first match still follows the intro for anyone with `TutorialDone ~= true` (the
+  intro callback checks it), and `IntroSeen` is still reported (`introDone`) for stats.
+- Settings > Replay story intro is unchanged (plays immediately, no ack).
+- `Hud.objective` has an "Intro" line; music simply fades during the phase (SoundManager only
+  knows Lobby/Day/Night tracks) which suits a cinematic.
+- One-line revert: in `MatchService.step`, call `startRound()` at lobby end again and drop the
+  `Intro` phase; restore the session-start gate in `init.client.luau` if the old behaviour is
+  wanted back.
+
+---
+
 # Clockwork Masquerade — v1.4.1 night shroud + Dawn Scatter (Oct 30, 2026)
 
 Approved by Murali on Oct 30. Both changes close the last two ways to identify a Phantom by

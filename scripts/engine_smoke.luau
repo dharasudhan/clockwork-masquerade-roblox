@@ -276,7 +276,7 @@ local fakeSoundProbe = {
 
 local Random = {}
 function Random.new(seed)
-	local s = seed or os.time()
+	local s = seed or (os.time() + (tonumber(process.env.BAL_SEED) or 0) * 7919) -- BAL_SEED: independent parallel balance runs
 	local rng = { _s = s }
 	math.randomseed(s)
 	function rng:NextNumber(a, b)
@@ -463,7 +463,7 @@ local DEBUG_BAL = process.env.DEBUG_BAL == "1"
 local ManorBuilder, LightingService, MatchService, BotService, GridService, ChaseService
 local LanternService, ChestService, Participants, Clock, DataService, Net, ItemService, LiftService
 local ExposeService, ArchiveService, FinaleService, AbilityService, ShopService
-local ShroudService, ShroudL, ScatterL
+local ShroudService, ShroudL, ScatterL, ScoreL, FameService
 local QuestService, EventService
 step("require server modules", function()
 	Clock = requireModule(Server.Clock)
@@ -490,6 +490,8 @@ step("require server modules", function()
 	ShroudService = requireModule(Server.ShroudService)
 	ShroudL = requireModule(Shared.Logic.Shroud)
 	ScatterL = requireModule(Shared.Logic.Scatter)
+	ScoreL = requireModule(Shared.Logic.Score)
+	FameService = requireModule(Server.FameService)
 end)
 
 -- v1.4.1: a night Phantom shows nothing of its own avatar and wears the uniform cloak
@@ -598,6 +600,88 @@ step("ManorBuilder: 5-level manor (B1, G, 1F, 2F attic, tower), 50+ rooms with o
 	print("       streaming: Breakers/Lifts/Props (board, console, projector, cabinets, key pedestals) Persistent")
 	for _, d in map:GetDescendants() do
 		assert(not string.find(string.lower(d.Name), "ghost"), "ghost-themed instance " .. d:GetFullName())
+	end
+end)
+
+step("v1.6: Hall of Fame board (10 rows + empty state, paints top 10), Castle Sterling gatehouse + crown, Grotto Baths pool (non-colliding), title", function()
+	local map = workspace.Map
+	local lobby = map.Lobby
+	local board = lobby:FindFirstChild("FameBoard")
+	assert(board and board:FindFirstChild("Fame"), "no FameBoard")
+	for i = 1, 10 do
+		assert(board:FindFirstChild("Row" .. i, true), "fame row " .. i)
+	end
+	assert(string.find(board:FindFirstChild("Row1", true).Text, "No champions", 1, true), "empty-state line")
+	FameService._paint({ { name = "Zed", wins = 2 }, { name = "Amelia Longname Sterling", wins = 9 } }, board)
+	local r1, r2, r3 = board:FindFirstChild("Row1", true).Text, board:FindFirstChild("Row2", true).Text, board:FindFirstChild("Row3", true).Text
+	assert(string.find(r1, "Amelia", 1, true) and string.find(r1, "9", 1, true) and string.find(r2, "Zed", 1, true) and r3 == "", "fame paint: " .. r1 .. " / " .. r2)
+	FameService._paint({}, board)
+	assert(string.find(board:FindFirstChild("Row1", true).Text, "No champions", 1, true), "empty state after repaint")
+	FameService.record(human) -- offline / no DataStore in the smoke: must not error
+	local gate = lobby:FindFirstChild("Gatehouse")
+	assert(gate and gate:FindFirstChild("Sign", true) and gate:FindFirstChild("Sign", true).Line1.Text == "CASTLE STERLING", "gatehouse sign")
+	-- the intro's first camera pass flies over the gatehouse
+	for _, d in gate:GetDescendants() do
+		if d:IsA("BasePart") then
+			assert(d.CFrame.Position.Y + d.Size.Y / 2 < 22, "gatehouse too tall for the intro camera: " .. d.Name)
+		end
+	end
+	assert(lobby.TitleBoard.Title.Line2.Text == "Mystery at Sterling Castle", "title line 2")
+	local fac = map.Facade
+	local nM, nT = 0, 0
+	for _, d in fac:GetChildren() do
+		if d.Name == "Merlon" then
+			nM += 1
+		elseif d.Name == "TowerShaft" then
+			nT += 1
+		end
+	end
+	assert(nM == 13 and nT == 2 and fac:FindFirstChild("Parapet") and fac:FindFirstChild("Banner"), "castle crown " .. nM .. "/" .. nT)
+	-- Grotto Baths: the room exists with its pool, every pool part non-colliding
+	local gd = map.Manor.Decor:FindFirstChild("Decor_grotto")
+	assert(gd and gd:FindFirstChild("PoolWater") and gd:FindFirstChild("PoolRim") and gd:FindFirstChild("LionHead"), "grotto pool")
+	for _, d in gd:GetDescendants() do
+		if d:IsA("BasePart") then
+			assert(not d.CanCollide, "grotto decor collides: " .. d.Name)
+		end
+	end
+	assert(map.Manor.Rooms.grotto:GetAttribute("RoomName") == "Grotto Baths", "grotto room name")
+	local wp = gd.PoolWater.CFrame.Position
+	local pool = Manor.Pools[1]
+	assert(math.abs(wp.X - pool.x) < 0.01 and math.abs(wp.Z - pool.z) < 0.01 and wp.Y < -18, "pool position")
+	-- DUMP_PARTS=path: export the v1.6 geometry (real built parts) for the shots/v1.6 renders
+	if process.env.DUMP_PARTS then
+		local out = {}
+		local function add(inst, region)
+			for _, d in inst:GetDescendants() do
+				if d:IsA("BasePart") then
+					local cf, sz, c = d.CFrame, d.Size, d.Color
+					local R, U, B = cf.RightVector, cf.UpVector, cf.LookVector
+					table.insert(out, { region = region, name = d.Name, shape = if d:IsA("Part") then d.Shape.Name else "Block",
+						p = { cf.Position.X, cf.Position.Y, cf.Position.Z }, r = { R.X, R.Y, R.Z, U.X, U.Y, U.Z, -B.X, -B.Y, -B.Z }, s = { sz.X, sz.Y, sz.Z },
+						c = { c.R, c.G, c.B }, t = d.Transparency, m = d.Material.Name })
+				end
+			end
+		end
+		add(map.Lobby, "lobby")
+		add(map.Facade, "facade")
+		add(gd, "grotto")
+		add(map.Manor.Rooms.grotto, "grotto")
+		for _, w in map.Manor.Walls:GetChildren() do
+			local p0 = w.CFrame.Position
+			if p0.Y > -1 and p0.Z > 56 and math.abs(p0.X) < 95 then
+				table.insert(out, { region = "front", name = w.Name, shape = "Block", p = { p0.X, p0.Y, p0.Z }, r = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, s = { w.Size.X, w.Size.Y, w.Size.Z }, c = { w.Color.R, w.Color.G, w.Color.B }, t = w.Transparency, m = w.Material.Name })
+			end
+			if p0.Y < -1 and p0.X > -44 and p0.X < 14 and p0.Z > 52 and p0.Z < 80 then
+				table.insert(out, { region = "grotto", name = w.Name, shape = "Block", p = { p0.X, p0.Y, p0.Z }, r = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }, s = { w.Size.X, w.Size.Y, w.Size.Z }, c = { w.Color.R, w.Color.G, w.Color.B }, t = w.Transparency, m = w.Material.Name })
+			end
+		end
+		local rows = {}
+		for i = 1, 10 do
+			rows[i] = board:FindFirstChild("Row" .. i, true).Text
+		end
+		require("@lune/fs").writeFile(process.env.DUMP_PARTS, require("@lune/serde").encode("json", { parts = out, fameRows = rows }))
+		print("       dumped " .. #out .. " parts to " .. process.env.DUMP_PARTS)
 	end
 end)
 
@@ -745,13 +829,28 @@ local function lastNote(kind)
 end
 
 step("full 3-night match, 1 human + 5 bots: Night 1 Breaker -> Dawn -> Night 2 Archives -> Dawn -> Night 3 Dawn Reboot -> Results", function()
-	MatchService.setDurations({ lobby = 1, results = 2 }) -- real night lengths
+	MatchService.setDurations({ lobby = 1, results = 2 }) -- real night lengths (and the real 45 s intro cap)
 	MatchService.init()
 	assert(phase() == "Lobby", "starts in lobby")
 	MatchService.state().lastPhantoms = { P4242 = true } -- the human is a guest this match
+	-- v1.5.2/v1.6 intro at the doors: the lobby ends in the Intro phase, every client is told,
+	-- and the round waits for the human's ack (not the 45 s cap)
 	assert(run(2, function()
+		return phase() == "Intro"
+	end), "no intro phase")
+	local introSent = false
+	for _, e in sentToClient do
+		if e.player == "all" and type(e.args[1]) == "table" and e.args[1].kind == "intro" then
+			introSent = true
+		end
+	end
+	assert(introSent, "intro notify not sent")
+	run(1)
+	assert(phase() == "Intro", "round started before the ack")
+	fakeSignal(game:GetService("ReplicatedStorage").Remotes.Action, "OnServerEvent"):Fire(human, "introAck")
+	assert(run(0.5, function()
 		return phase() == "Day"
-	end), "no day")
+	end), "no day after the intro ack")
 	local me = Participants.ofPlayer(human)
 	assert(me and me.role == "Guest", "human not a guest")
 	me.immuneUntil = math.huge -- the human idles; keep it untagged so all 3 nights play out
@@ -916,7 +1015,7 @@ step("full 3-night match, 1 human + 5 bots: Night 1 Breaker -> Dawn -> Night 2 A
 	assert(BotService.count() == 0 and #Participants.all() == 0, "match not cleaned up")
 	assert(human:GetAttribute("InMatch") == nil and human:GetAttribute("Ribbon") == nil, "player still marked in match")
 	local h = table.concat(MatchService.history(), ",")
-	assert(string.find(h, "Lobby,Day,Night,Dawn,Day,Night,Dawn,Day,Night", 1, true) and string.sub(h, -13) == "Results,Lobby", h)
+	assert(string.find(h, "Lobby,Intro,Day,Night,Dawn,Day,Night,Dawn,Day,Night", 1, true) and string.sub(h, -13) == "Results,Lobby", h)
 end)
 
 -- ---- staged rules ----------------------------------------------------------
@@ -942,9 +1041,9 @@ step("staged day: chest open, tamper channel (moving cancels, 2 per night, floor
 	run(400, function()
 		return phase() == "Lobby"
 	end)
-	MatchService.setDurations({ lobby = 0.5, day = 30, night = 240, results = 1 })
+	MatchService.setDurations({ lobby = 0.5, intro = 0.5, day = 30, night = 240, results = 1 })
 	MatchService.state().lastPhantoms = { P4242 = true }
-	assert(run(1.5, function()
+	assert(run(3, function()
 		return phase() == "Day"
 	end), "no day")
 	BotService.setPaused(true)
@@ -1264,7 +1363,7 @@ step("win: 100% reboot -> Guests win the NIGHT (dawn, match goes on); all tagged
 		assert(p.state == "Guest", "dawn revives / re-disguises everyone")
 	end
 	MatchService.state().endsAt = Clock.now() -- end the match quickly: go to lobby
-	MatchService.setDurations({ lobby = 0.5, day = 1, night = 240, results = 1 })
+	MatchService.setDurations({ lobby = 0.5, intro = 0.5, day = 1, night = 240, results = 1 })
 	for _, p in Participants.all() do
 		if p.role == "Phantom" then
 			Participants.remove(p)
@@ -1277,9 +1376,9 @@ step("win: 100% reboot -> Guests win the NIGHT (dawn, match goes on); all tagged
 	assert(run(3, function()
 		return phase() == "Lobby"
 	end))
-	MatchService.setDurations({ lobby = 0.5, day = 1, night = 240, results = 1 })
+	MatchService.setDurations({ lobby = 0.5, intro = 0.5, day = 1, night = 240, results = 1 })
 	MatchService.state().lastPhantoms = {}
-	assert(run(1.5, function()
+	assert(run(3, function()
 		return phase() == "Day"
 	end))
 	BotService.setPaused(true)
@@ -1312,7 +1411,7 @@ step("win: 100% reboot -> Guests win the NIGHT (dawn, match goes on); all tagged
 end)
 
 step("v1.0 staged: Expose (clue + vote -> Phantom stunned), class gadgets, Night 2 pages/trap/projector/glide, finale keys -> Overdrive ring -> Guests", function()
-	MatchService.setDurations({ lobby = 0.5, day = 60, night = 240, results = 1, dawn = 1, showdown = 300, overdrive = 300 })
+	MatchService.setDurations({ lobby = 0.5, intro = 0.5, day = 60, night = 240, results = 1, dawn = 1, showdown = 300, overdrive = 300 })
 	MatchService.state().lastPhantoms = { P4242 = true }
 	assert(run(2, function()
 		return phase() == "Day"
@@ -1716,10 +1815,10 @@ step("v1.4.1 night shroud + Dawn Scatter: dressed human Phantom == bot Phantom a
 	run(400, function()
 		return phase() == "Lobby"
 	end)
-	MatchService.setDurations({ lobby = 0.5, day = 3, night = 30, results = 1 })
+	MatchService.setDurations({ lobby = 0.5, intro = 0.5, day = 3, night = 30, results = 1 })
 	MatchService.state().lastPhantoms = {}
 	local look = dressAvatar(human.Character)
-	assert(run(1.5, function()
+	assert(run(3, function()
 		return phase() == "Day"
 	end), "no day")
 	BotService.setPaused(true)
@@ -1766,6 +1865,23 @@ step("v1.4.1 night shroud + Dawn Scatter: dressed human Phantom == bot Phantom a
 	assert(me.model == char, "respawn not picked up")
 	assertShrouded(char, "respawned human Phantom")
 	assert(ShroudService.count() == 2, "stash count after respawn " .. ShroudService.count())
+	-- v1.6.3: an in-match Robux cosmetic bought by a shrouded Phantom at night is granted at once
+	-- but NOT worn over the shroud (it would out the Phantom); it goes on at the dawn swap
+	local pdata = DataService.get(human)
+	Monetization.Products.MaskPackReaper.id = 333
+	local Granted16 = roblox.Enum.ProductPurchaseDecision.PurchaseGranted
+	assert(ShopService.processReceipt({ PlayerId = 4242, ProductId = 333, PurchaseId = "r-night" }) == Granted16, "night receipt")
+	assert(ShopService.processReceipt({ PlayerId = 4242, ProductId = 333, PurchaseId = "r-night" }) == Granted16, "night receipt retry")
+	Monetization.Products.MaskPackReaper.id = 0
+	assert(pdata.Owned.mask_reaper and pdata.Equipped.Mask == "mask_reaper", "in-match cosmetic not granted + equipped")
+	assertShrouded(char, "Phantom after a night purchase")
+	assert(me.dressPending == true, "night purchase dressed over the shroud")
+	-- v1.6.1 scoreboard during the night: role-safe (no repairs, no role words)
+	local sc = workspace:GetAttribute("CM_Score") or ""
+	assert(sc ~= "" and not string.find(sc, "Phantom", 1, true) and not string.find(sc, "Guest", 1, true), "scoreboard leaks a role: " .. sc)
+	for _, e in ScoreL.decode(sc) do
+		assert(e.repairs == 0, "scoreboard shows repairs mid-match")
+	end
 	-- dawn: the shroud comes off only inside the clock-strike blackout, everyone scattered
 	GridService.state().reboot = 99.99
 	MatchService.step(0.1)
@@ -1781,6 +1897,9 @@ step("v1.4.1 night shroud + Dawn Scatter: dressed human Phantom == bot Phantom a
 		return phase() == "Day"
 	end), "no day 2")
 	assertDressed(char, look2, "dawn")
+	assert(me.dressPending == nil, "pending dress not applied at dawn")
+	local mm = char:FindFirstChild("MasqueradeMask")
+	assert(mm and mm:GetAttribute("Cosmetic") == "mask_reaper", "night-bought mask not worn at dawn")
 	assert(botPh.model.Head.Color ~= roblox.Color3.fromRGB(24, 20, 30), "bot body colour not restored")
 	assert(ShroudService.count() == 0, "stash left after dawn")
 	-- night 2, then the match ends with the shroud on -> everything restored
@@ -1796,6 +1915,7 @@ step("v1.4.1 night shroud + Dawn Scatter: dressed human Phantom == bot Phantom a
 	end), "match did not end")
 	assert(phase() == "Results" or phase() == "Lobby", "match did not end: " .. tostring(phase()))
 	assertDressed(char, look2, "match end")
+	assert((workspace:GetAttribute("CM_Score") or "") ~= "", "final scores not published at Results")
 	assert(ShroudService.count() == 0, "stash left after match end")
 	BotService.setPaused(false)
 	assert(run(5, function()
@@ -1831,7 +1951,7 @@ step(string.format("bot-only 3-night matches (no humans), %d matches, all floors
 		end
 	end)
 	for round = 1, BAL_ROUNDS do
-		MatchService.setDurations({ lobby = 0.5, results = 1 })
+		MatchService.setDurations({ lobby = 0.5, intro = 0.5, results = 1 })
 		assert(run(1.5, function()
 			return phase() == "Day"
 		end))
@@ -2281,6 +2401,41 @@ step("menus with a gamepad: shop / class / settings / vote / items open, first b
 	assert(table.concat(names, ",") == "Vote_B91,Vote_B92", "vote list " .. table.concat(names, ","))
 	Menus.close()
 	botsFolder:ClearAllChildren()
+	-- v1.6.1 scoreboard panel: empty state, then rows from CM_Score (repairs hidden mid-match)
+	workspace:SetAttribute("CM_Score", "")
+	Menus.open("Score")
+	assert(ClientState.panel == "Score" and Menus.frame():FindFirstChild("Empty", true), "scoreboard empty state")
+	workspace:SetAttribute("CM_Phase", "Day")
+	workspace:SetAttribute("CM_Score", "Ada~Crimson~In play~0~3|Bram~Azure~Wisp~0~1")
+	Menus._refreshScore()
+	taskLib.wait(0.05)
+	local row1 = Menus.frame():FindFirstChild("Row1", true)
+	assert(row1 and string.find(row1:FindFirstChild("Name").Text, "Ada", 1, true), "scoreboard rows")
+	assert(not string.find(row1:FindFirstChild("Counts").Text, "🔧", 1, true), "repairs shown mid-match")
+	Menus.close()
+	-- v1.6.3 in-match specials: every one says Coming soon (ids 0) and a tap never prompts
+	Menus.open("Specials")
+	local specials, prompts = 0, 0
+	for _, d in Menus.frame():GetDescendants() do
+		if d:IsA("TextButton") and string.sub(d.Name, 1, 8) == "Special_" then
+			specials += 1
+			assert(string.find(d.Text, "Coming soon", 1, true), "special without Coming soon: " .. d.Text)
+		end
+	end
+	assert(specials == #Monetization.inMatchProducts(), "specials listed " .. specials)
+	local okHook = pcall(function()
+		roblox.implementMethod("MarketplaceService", "PromptProductPurchase", function()
+			prompts += 1
+		end)
+	end)
+	ClientState.toast = nil
+	fakeSignal(Menus.frame():FindFirstChild("Special_MaskPackReaper", true), "Activated"):Fire()
+	taskLib.wait(0.05)
+	assert(prompts == 0, "id-0 special opened a purchase prompt")
+	assert(not okHook or (ClientState.toast and string.find(ClientState.toast.text, "Coming soon", 1, true)), "no Coming soon toast")
+	Menus.close()
+	workspace:SetAttribute("CM_Phase", nil)
+	workspace:SetAttribute("CM_Score", nil)
 	Input.setDevice("touch")
 end)
 

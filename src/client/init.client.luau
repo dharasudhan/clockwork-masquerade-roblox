@@ -38,10 +38,18 @@ local function startTutorial()
 	end)
 end
 
-local function playIntro(thenTutorial: boolean)
+-- v1.5.2: the full story intro plays at the DOORS (the lobby -> match transition), once per
+-- session; later matches in the same session get a 3 s title card. Both ack the server so the
+-- round can start (see MatchService "introAck").
+local sessionIntroPlayed = false
+
+local function playIntro(thenTutorial: boolean, andThen: (() -> ())?)
 	Menus.close()
 	Intro.start(function()
 		send("introDone")
+		if andThen then
+			andThen()
+		end
 		if thenTutorial and player:GetAttribute("TutorialDone") ~= true then
 			startTutorial()
 		end
@@ -140,6 +148,8 @@ local function act(action: string, arg: any?)
 		selectItem(arg)
 	elseif action == "info" then
 		Menus.toggle("Items")
+	elseif action == "score" then
+		Menus.toggle("Score") -- v1.6.1 mid-match scoreboard
 	elseif action == "menu" then
 		if type(arg) == "string" then
 			Menus.open(arg)
@@ -217,6 +227,21 @@ Notify.OnClientEvent:Connect(function(payload)
 		Hud.banner(string.format("NIGHT %d of %d", payload.no, payload.count), tostring(payload.name), if payload.nightKind == "finale" then "Gold" else "Brass", 3.5)
 	elseif k == "dawn" then
 		Hud.banner(if payload.winner == "Guests" then "DAWN! ☀️" else "STILL DARK... 🌙", tostring(payload.reason), if payload.winner == "Guests" then "TealNeon" else "MaskNeon", 6)
+	elseif k == "intro" then
+		-- v1.5.2: the server opened the doors (lobby -> match). First match of the session gets
+		-- the full skippable cinematic; repeat matches get a short title card. Either way the
+		-- client acks so the round can begin (a hard server cap covers stragglers).
+		if not sessionIntroPlayed then
+			sessionIntroPlayed = true
+			playIntro(true, function()
+				send("introAck")
+			end)
+		else
+			Hud.banner("THE DOORS OPEN", "Castle Sterling awaits its guests...", "Brass", 3)
+			task.delay(3, function()
+				send("introAck")
+			end)
+		end
 	elseif k == "blackout" then
 		-- v1.4.1 Dawn Scatter: fade to black while the server scatters everyone
 		Blackout.play(payload, os.clock())
@@ -240,7 +265,6 @@ end)
 
 local lastPhase = nil
 local aimAccum, uiAccum, promptAccum = 0, 0, 0
-local introChecked = false
 local lastMusic, lastSfx = nil, nil
 RunService.Heartbeat:Connect(function(dt)
 	aimAccum += dt
@@ -264,13 +288,8 @@ RunService.Heartbeat:Connect(function(dt)
 			Menus.close()
 		end
 	end
-	-- v1.4: the skippable story intro plays at the start of EVERY session (SKIP button,
-	-- Space / Backspace, gamepad A/B). The guided first match still follows for anyone who
-	-- has not finished the tutorial - the intro callback checks TutorialDone itself.
-	if not introChecked and player:GetAttribute("IntroSeen") ~= nil then
-		introChecked = true
-		playIntro(true)
-	end
+	-- v1.5.2: no intro at join anymore - it plays at the doors when the lobby ends (the
+	-- Notify "intro" handler above). The guided first match still follows it via TutorialDone.
 	local m, s = player:GetAttribute("Set_Music"), player:GetAttribute("Set_Sfx")
 	if m ~= lastMusic or s ~= lastSfx then
 		lastMusic, lastSfx = m, s

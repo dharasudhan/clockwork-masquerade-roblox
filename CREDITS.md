@@ -108,3 +108,19 @@ Nothing from either repository is included.
 Engine fact found in a real-server probe (Oct 30 2026): an accessory loses its `AccessoryRigidConstraint` when it leaves
 the character, so the restore re-adds accessories through `Humanoid:AddAccessory`.
 Audio: the clock-strike chime re-uses the verified Gong 1846269128. No new assets, nothing bought.
+
+## v1.6 (Oct 30 2026): Hall of Fame + scoreboard + Grotto Baths
+
+`server/FameService`, `Logic/Fame`, `Logic/Score`, the Grotto Baths kit and the castle geometry were written for this repo
+(Murali's v1.6 branch + Hark's review). No code copied. Researched first for the Hall of Fame:
+- **Roblox creator-docs, "Create a leaderboard"** (CC-BY-4.0 docs) —
+  https://github.com/Roblox/creator-docs/blob/main/content/en-us/tutorials/use-case-tutorials/data-storage/create-leaderboard.md —
+  server-side `SetAsync` of the score into an OrderedDataStore + `GetSortedAsync(false, 10)` on a timer.
+- **Roblox engine reference, OrderedDataStore** — https://create.roblox.com/docs/reference/engine/classes/OrderedDataStore —
+  integer values only, no metadata → display names cannot live in the ordered store.
+- **arxkdev/Leaderboard** (MIT) — https://github.com/arxkdev/Leaderboard — keeps the profile as the authority, pushes
+  totals to the ordered store, caches reads and resolves names through UserService. Pattern adopted: names from one
+  batched `UserService:GetUserInfosByUserIdsAsync` call (cached), no second "names" DataStore.
+- **lowyabusa/roblox-server-leaderboard-system** (MIT) — https://github.com/lowyabusa/roblox-server-leaderboard-system —
+  server-authoritative publish path, Workspace display boards (same shape as our lobby board).
+No new assets (all primitives), nothing bought.

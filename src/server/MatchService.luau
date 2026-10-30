@@ -15,6 +15,9 @@
 -- dawn interlude ends the clock strikes - every client fades to black (+ chime), and while the
 -- screen is black the Phantoms' shroud comes off and EVERY participant is moved to a random safe
 -- spot in a different room on a spread of floors (Logic/Scatter), then the screen fades back in.
+-- v1.5.2: the story intro moved to the DOORS - a new Intro phase between Lobby and Day 1. Every
+-- client in the lobby plays it (full cinematic the first match of the session, a 3 s title card
+-- after that); the round starts when every present client has acked or IntroSeconds runs out.
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
@@ -93,6 +96,23 @@ local function startLobby()
 	workspace:SetAttribute("CM_NightsWon", 0)
 	workspace:SetAttribute("CM_NightResults", "")
 	setPhase("Lobby", secs("lobby", Match.LobbySeconds))
+end
+
+-- ---- v1.5.2 Intro at the doors ---------------------------------------------------------------
+-- The story intro plays between the lobby and Day 1. Only the players who were in the lobby
+-- when the doors open are expected to ack; the round starts when all of them have (watched or
+-- skipped) or IntroSeconds runs out, so a stuck or slow client never holds the match hostage.
+local introAcked: { [number]: boolean } = {}
+local introAudience: { [number]: boolean } = {}
+
+local function startIntro()
+	table.clear(introAcked)
+	table.clear(introAudience)
+	for _, pl in Players:GetPlayers() do
+		introAudience[pl.UserId] = true
+	end
+	setPhase("Intro", secs("intro", Match.IntroSeconds))
+	Net.sendAll({ kind = "intro", seconds = Match.IntroSeconds })
 end
 
 local function spawnPoint(i: number, n: number): CFrame
@@ -509,6 +529,17 @@ function MatchService.step(dt: number)
 	local now = Clock.now()
 	if state.phase == "Lobby" then
 		if now >= state.endsAt then
+			startIntro()
+		end
+	elseif state.phase == "Intro" then
+		local pending = false
+		for uid in introAudience do
+			if not introAcked[uid] then
+				pending = true
+				break
+			end
+		end
+		if not pending or now >= state.endsAt then
 			startRound()
 		end
 	elseif state.phase == "Day" or state.phase == "Night" then
@@ -606,6 +637,10 @@ local function onAction(player: Player, kind: any, arg: any)
 		return
 	elseif kind == "introDone" then
 		DataService.setFlag(player, "IntroSeen")
+		return
+	elseif kind == "introAck" then
+		-- v1.5.2: the client finished (or skipped) the doors intro; release the round
+		introAcked[player.UserId] = true
 		return
 	elseif kind == "tutorialDone" then
 		DataService.setFlag(player, "TutorialDone")
@@ -708,6 +743,7 @@ function MatchService.init()
 	end
 	Players.PlayerAdded:Connect(hook)
 	Players.PlayerRemoving:Connect(function(player)
+		introAcked[player.UserId] = true -- v1.5.2: a leaver must never hold the doors open
 		local p = Participants.ofPlayer(player)
 		if p then
 			GridService.cancel(p)

@@ -188,6 +188,13 @@ until Gate 6; rename the experience from "GhostMansionTest" when Murali wants.
 
 ## Status
 
+**Oct 30 2026 — v1.4.1** (night shroud + Dawn Scatter): local 118/118 specs, place verify 56/56, engine smoke 0
+failures (every Phantom shrouded at night incl. bots, shroud off only inside the clock-strike blackout, everyone
+scattered to a new room, dressed human == bot cloak, respawn / dawn / match-end restore). Balance 30-match runs 33% and
+47% guest wins (pooled 41%). Cloud (universe 10773325724 only): 119/119 specs, boot OK (v1.4.1), real-engine bot match
+OK (shroud + scatter), audio 26/26. **Published privately as place version 20**; universe read back PRIVATE. Details in
+`docs/UPGRADE-NOTES.md`; mock-up `../shots/v1.4.1/`.
+
 **Oct 30 2026 — v1.4**: local 94/94 specs, place verify 56/56, engine smoke 0 failures (new: premium XP, season
 rewards kept, pass gift + stale-season receipt, anonymous night Phantom, no [BOT] tags); balance 30 bot matches
 15/30 = 50 % guest wins. Cloud (universe 10773325724 only): 95/95 specs, boot OK (v1.4), real-engine bot match OK,

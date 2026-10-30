@@ -21,9 +21,11 @@ local Intro = require(script:WaitForChild("Intro"))
 local Guide = require(script:WaitForChild("Guide"))
 local PromptFilter = require(script:WaitForChild("PromptFilter"))
 local SoundManager = require(script:WaitForChild("SoundManager"))
+local Blackout = require(script:WaitForChild("Blackout"))
 
 local player = Players.LocalPlayer
 Hud.build(player:WaitForChild("PlayerGui"))
+Blackout.build(player:WaitForChild("PlayerGui")) -- v1.4.1 Dawn Scatter clock strike
 SoundManager.init()
 
 local function send(kind: string, arg: any?)
@@ -215,6 +217,9 @@ Notify.OnClientEvent:Connect(function(payload)
 		Hud.banner(string.format("NIGHT %d of %d", payload.no, payload.count), tostring(payload.name), if payload.nightKind == "finale" then "Gold" else "Brass", 3.5)
 	elseif k == "dawn" then
 		Hud.banner(if payload.winner == "Guests" then "DAWN! ☀️" else "STILL DARK... 🌙", tostring(payload.reason), if payload.winner == "Guests" then "TealNeon" else "MaskNeon", 6)
+	elseif k == "blackout" then
+		-- v1.4.1 Dawn Scatter: fade to black while the server scatters everyone
+		Blackout.play(payload, os.clock())
 	elseif k == "badge" then
 		Hud.banner("🏅 BADGE: " .. tostring(payload.name), tostring(payload.desc), "Gold", 4)
 	elseif k == "daily" then
@@ -242,6 +247,7 @@ RunService.Heartbeat:Connect(function(dt)
 	uiAccum += dt
 	promptAccum += dt
 	Intro.step(dt)
+	Blackout.step(os.clock())
 	local phase = State.phase()
 	if phase ~= lastPhase then
 		lastPhase = phase

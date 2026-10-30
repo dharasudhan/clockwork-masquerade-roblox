@@ -7,6 +7,8 @@
 -- when a swipe just misses a guest.
 -- v1.4 (deduction fix): a transformed Phantom's nametag is HIDDEN - a name over the monster
 -- named its account and made the next Expose vote trivial. Guests keep their names by day.
+-- v1.4.1 (night shroud): the night Phantom also loses its avatar look (clothes, accessories,
+-- body colours, lantern skin) under one uniform cloak - ShroudService - undone at dawn / match end.
 local PhysicsService = game:GetService("PhysicsService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Gadgets = require(Shared.Config.Gadgets)
@@ -26,6 +28,7 @@ local LightingService = require(script.Parent.LightingService)
 local GridService = require(script.Parent.GridService)
 local Clock = require(script.Parent.Clock)
 local Net = require(script.Parent.Net)
+local ShroudService = require(script.Parent.ShroudService)
 
 local ChaseService = {}
 
@@ -174,6 +177,7 @@ function ChaseService.nightFalls()
 		Participants.set(p, "Transforming", true)
 		maskOn(p)
 		setNameShown(p, false) -- v1.4: the monster is anonymous
+		ShroudService.apply(p.model) -- v1.4.1: ...and so is its outfit
 		p.lastTag = nil
 		Participants.set(p, "TagReadyAt", now + P.transformSeconds)
 	end
@@ -636,6 +640,7 @@ function ChaseService.dawn()
 					end
 				end
 			end
+			ShroudService.remove(m) -- v1.4.1: own avatar back on by day
 			setNameShown(p, true) -- v1.4: disguise back on, name back on
 			setState(p, "Guest") -- looks like a guest again by day
 			p.state = "Guest"
@@ -664,11 +669,13 @@ end
 -- A respawned character (fell, reset) gets its round look back.
 function ChaseService.reapply(p)
 	ChaseService.prepare(p)
+	ShroudService.prune() -- the old character's stash goes with it
 	setNameShown(p, not (p.role == "Phantom" and p.state == "Phantom")) -- v1.4
 	if p.state == "Wisp" or p.state == "Bubble" then
 		becomeWisp(p)
 	elseif p.role == "Phantom" and p.state == "Phantom" then
 		maskOn(p)
+		ShroudService.apply(p.model) -- v1.4.1: still night -> shroud the new character
 	end
 end
 
@@ -692,6 +699,7 @@ function ChaseService.reset()
 		end
 		setNameShown(p, true) -- v1.4: never leave a hidden name behind after a match
 	end
+	ShroudService.clearAll() -- v1.4.1: every avatar restored, every stash dropped
 	LightingService.stopFlicker()
 end
 

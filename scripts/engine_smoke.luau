@@ -133,6 +133,11 @@ end)
 roblox.implementMethod("Workspace", "GetServerTimeNow", function()
 	return os.time() + 0.25 + (os.clock() % 0.5)
 end)
+-- StreamingEnabled pre-load before teleports (v1.4.1 Dawn Scatter): record who asked where
+local streamRequests = {}
+roblox.implementMethod("Player", "RequestStreamAroundAsync", function(player, pos)
+	table.insert(streamRequests, { player = player, pos = pos })
+end)
 roblox.implementMethod("Player", "Kick", function(_, msg)
 	error("player kicked: " .. tostring(msg))
 end)
@@ -458,6 +463,7 @@ local DEBUG_BAL = process.env.DEBUG_BAL == "1"
 local ManorBuilder, LightingService, MatchService, BotService, GridService, ChaseService
 local LanternService, ChestService, Participants, Clock, DataService, Net, ItemService, LiftService
 local ExposeService, ArchiveService, FinaleService, AbilityService, ShopService
+local ShroudService, ShroudL, ScatterL
 local QuestService, EventService
 step("require server modules", function()
 	Clock = requireModule(Server.Clock)
@@ -481,7 +487,43 @@ step("require server modules", function()
 	ShopService = requireModule(Server.ShopService)
 	QuestService = requireModule(Server.QuestService)
 	EventService = requireModule(Server.EventService)
+	ShroudService = requireModule(Server.ShroudService)
+	ShroudL = requireModule(Shared.Logic.Shroud)
+	ScatterL = requireModule(Shared.Logic.Scatter)
 end)
+
+-- v1.4.1: a night Phantom shows nothing of its own avatar and wears the uniform cloak
+local function assertShrouded(m, who)
+	assert(ShroudService.isOn(m), "no shroud on " .. who)
+	local cloak = m:FindFirstChild(ShroudL.ModelName)
+	local n = #cloak:GetChildren()
+	assert(n >= 10 and n <= ShroudL.MaxParts, "cloak parts " .. n .. " on " .. who)
+	for _, c in cloak:GetChildren() do
+		assert(c.CanCollide == false and c.CanQuery == false and c.CanTouch == false and c.Massless and not c.Anchored, "cloak part physics " .. c.Name)
+	end
+	for _, c in m:GetChildren() do
+		assert(not (c:IsA("Accessory") or c:IsA("Shirt") or c:IsA("Pants") or c:IsA("ShirtGraphic") or c:IsA("BodyColors") or c:IsA("CharacterMesh")), who .. " still wears " .. c.ClassName)
+		if c:IsA("BasePart") and ShroudL.BodyParts[c.Name] then
+			assert(c.Color == roblox.Color3.fromRGB(24, 20, 30), who .. " body colour shows on " .. c.Name)
+			for _, d in c:GetChildren() do
+				assert(not d:IsA("Decal") or d.Transparency == 1, who .. " face/decal visible")
+			end
+		end
+		if c.Name == "Hat" or c.Name == "HatBrim" then
+			assert(c.Transparency == 1, who .. " bot hat visible")
+		end
+	end
+	local lamp = m:FindFirstChild("LanternLamp")
+	assert(not lamp or lamp.Color == roblox.Color3.fromRGB(196, 152, 64), who .. " lantern skin shows")
+end
+local function cloakSignature(m)
+	local parts = {}
+	for _, c in m:FindFirstChild(ShroudL.ModelName):GetChildren() do
+		table.insert(parts, c.Name .. ":" .. c.ClassName .. ":" .. c.Material.Name .. ":" .. tostring(c.Color))
+	end
+	table.sort(parts)
+	return table.concat(parts, "|")
+end
 
 local built
 step("ManorBuilder: 5-level manor (B1, G, 1F, 2F attic, tower), 50+ rooms with own themes, 6 breakers, 4-stop lift, props", function()
@@ -768,6 +810,9 @@ step("full 3-night match, 1 human + 5 bots: Night 1 Breaker -> Dawn -> Night 2 A
 			assert(not tag or tag.Enabled == false, "night Phantom NameTag visible")
 			assert(not rib or rib.Transparency == 1, "night Phantom ribbon visible")
 		end
+		for _, q in Participants.phantoms() do -- v1.4.1: every Phantom (bots too) wears the shroud
+			assertShrouded(q.model, q.name)
+		end
 		if no < 3 then
 			assert(workspace:GetAttribute("CM_Tripped") ~= "" or GridService.state().tampers == 0, "tampered breaker did not trip")
 			assert(run(Nights.nightLength(n) + 2, function()
@@ -777,9 +822,58 @@ step("full 3-night match, 1 human + 5 bots: Night 1 Breaker -> Dawn -> Night 2 A
 			assert(phase() == "Dawn", "expected Dawn after night " .. no .. ", got " .. tostring(phase()))
 			seen.nights[no] = workspace:GetAttribute("CM_LastNightWinner")
 			print(string.format("       night %d (%s): %s", no, n.name, tostring(seen.nights[no])))
+			-- v1.4.1 Dawn Scatter: clock strike -> black -> shroud off + everyone moved -> Day
+			local fromRoom = {}
+			for _, q in Participants.all() do
+				local pos = Participants.pos(q)
+				fromRoom[q.id] = pos and ManorLayout.roomAt(Manor, pos.X, pos.Y, pos.Z)
+			end
+			local sent0, streams0 = #sentToClient, #streamRequests
+			local strikeSeen, shroudOffAt = false, nil
 			assert(run(Match.DawnSeconds + 1, function()
+				local ss = MatchService._scatterState()
+				if ss.struck and not strikeSeen then
+					strikeSeen = true
+					for _, q in Participants.phantoms() do
+						assert(ShroudService.isOn(q.model), "shroud came off before the screen went black")
+					end
+				end
+				if shroudOffAt == nil then
+					local on = false
+					for _, q in Participants.phantoms() do
+						on = on or ShroudService.isOn(q.model)
+					end
+					if not on then
+						shroudOffAt = Clock.now()
+						local t = shroudOffAt - ss.strikeAt
+						assert(ss.struck and ScatterL.alpha(t) >= 1, string.format("shroud off while the screen is not black (t=%.2f)", t))
+					end
+				end
 				return phase() == "Day"
 			end), "dawn did not lead to a day")
+			assert(strikeSeen and shroudOffAt, "no clock strike / shroud never came off")
+			local gotBlackout, gotChime = false, false
+			for i = sent0 + 1, #sentToClient do
+				local e = sentToClient[i]
+				local pl = e.args[1]
+				if type(pl) == "table" and pl.kind == "blackout" and (e.player == "all" or e.player == human) then
+					gotBlackout = true
+				elseif type(pl) == "table" and pl.kind == "sfx" and pl.cue == "ClockStrike" then
+					gotChime = true
+				end
+			end
+			assert(gotBlackout and gotChime, "blackout notify / chime not sent")
+			assert(#streamRequests > streams0, "no RequestStreamAroundAsync before the scatter teleport")
+			local landed = {}
+			for _, q in Participants.all() do
+				local pos = Participants.pos(q)
+				local room = pos and ManorLayout.roomAt(Manor, pos.X, pos.Y, pos.Z)
+				assert(room and room ~= fromRoom[q.id], q.name .. " not scattered (" .. tostring(fromRoom[q.id]) .. " -> " .. tostring(room) .. ")")
+				assert(not landed[room], "two people scattered into " .. room)
+				landed[room] = true
+				assert(not ShroudService.isOn(q.model), "shroud still on by day: " .. q.name)
+			end
+			assert(ShroudService.count() == 0, "shroud stash left after dawn")
 			for _, p in Participants.all() do
 				assert(p.state == "Guest", "everyone looks like a guest at the next day: " .. p.name .. "=" .. p.state)
 				assert(not (p.model and p.model:FindFirstChild("WispOrb")), "wisp orb left over")
@@ -937,6 +1031,9 @@ step("staged night: transform, lantern beams slow (stacking, capped), repair (wi
 	assert(built.breakers.A.model:GetAttribute("Tripped") == true and built.breakers.B.model:GetAttribute("Tripped") == true, "breakers A+B did not trip: tampered " .. tostring(gs.breakers.A.tampered))
 	run(Gadgets.Phantom.transformSeconds + 0.2)
 	assert(P.transformed, "not transformed")
+	-- (de-flake: bot guests may have Exposed the Phantom during the staged day -> stunned)
+	P.frozenUntil, P.stunUntil = nil, nil
+	Participants.set(P, "StunUntil", nil)
 	give(P, "SpringBoots", 1)
 	assert(ItemService.use(P, "SpringBoots") == false, "unmasked phantom used guest items")
 	-- lantern: human guest 15 studs in front of the Phantom
@@ -947,7 +1044,7 @@ step("staged night: transform, lantern beams slow (stacking, capped), repair (wi
 	run(0.2)
 	assert(LanternService.beamsOn(P.id) == 1, "beam not on phantom: " .. LanternService.beamsOn(P.id))
 	local hum = Participants.humanoid(P)
-	assert(math.abs(hum.WalkSpeed - Gadgets.Phantom.nightSpeed * (1 - Gadgets.Lantern.slowPerBeam)) < 0.1, "slow " .. hum.WalkSpeed)
+	assert(math.abs(hum.WalkSpeed - Gadgets.Phantom.nightSpeed * (1 - Gadgets.Lantern.slowPerBeam)) < 0.1, string.format("slow %s (stun %s frozen %s now %s state %s shaken %s)", tostring(hum.WalkSpeed), tostring(P.stunUntil), tostring(P.frozenUntil), tostring(Clock.now()), tostring(P.state), tostring(P.shakenUntil)))
 	-- a Phantom one floor up is not in the beam
 	at(P, 0, -10, 3 + Manor.LevelHeight)
 	run(0.2)
@@ -1547,6 +1644,166 @@ step("v1.1/v1.2: save v2->v3 migration, quests (corrupt list rerolls, payout onc
 	workspace:SetAttribute("CM_NightKind", nk)
 end)
 
+-- v1.4.1: a dressed human avatar as Phantom next to a bot Phantom: identical shroud at night,
+-- exact restore at dawn (inside the blackout), re-shroud on a night respawn, restore at match end.
+local function dressAvatar(char)
+	local Color3 = roblox.Color3
+	local shirt = Instance.new("Shirt")
+	shirt.ShirtTemplate = "rbxassetid://111"
+	shirt.Parent = char
+	local pants = Instance.new("Pants")
+	pants.PantsTemplate = "rbxassetid://222"
+	pants.Parent = char
+	Instance.new("ShirtGraphic").Parent = char
+	local bc = Instance.new("BodyColors")
+	bc.HeadColor3 = Color3.fromRGB(240, 200, 160)
+	bc.Parent = char
+	local head = char:FindFirstChild("Head")
+	head.Color = Color3.fromRGB(240, 200, 160)
+	local face = Instance.new("Decal")
+	face.Name = "face"
+	face.Parent = head
+	for _, n in { "TopHat", "LayeredJacket" } do
+		local acc = Instance.new("Accessory")
+		acc.Name = n
+		local h = Instance.new("Part")
+		h.Name = "Handle"
+		h.Size = Vector3.new(1, 1, 1)
+		h.CFrame = head.CFrame * CFrame.new(0, 1, 0)
+		h.Parent = acc
+		local w = Instance.new("Weld")
+		w.Name = "AccessoryWeld"
+		w.Part0 = h
+		w.Part1 = head
+		w.Parent = h
+		if n == "LayeredJacket" then
+			Instance.new("WrapLayer").Parent = h
+		end
+		acc.Parent = char
+	end
+	local torso = char:FindFirstChild("UpperTorso")
+	torso.Color = Color3.fromRGB(10, 120, 200)
+	local arm
+	for _, side in { "Left", "Right" } do
+		local a = Instance.new("MeshPart")
+		a.Name = side .. "UpperArm"
+		a.Size = Vector3.new(1, 1.2, 1)
+		a.CFrame = torso.CFrame * CFrame.new(if side == "Left" then -1.5 else 1.5, 0, 0)
+		a.TextureID = "rbxassetid://333"
+		a.Color = Color3.fromRGB(240, 200, 160)
+		a.Parent = char
+		arm = arm or a
+	end
+	local trail = Instance.new("Trail")
+	trail.Name = "AvatarTrail"
+	trail.Parent = torso
+	return { head = head.Color, torso = torso.Color, arm = arm.Color }
+end
+local function assertDressed(char, look, why)
+	for _, cls in { "Shirt", "Pants", "ShirtGraphic", "BodyColors" } do
+		assert(char:FindFirstChildOfClass(cls), cls .. " not restored (" .. why .. ")")
+	end
+	local hat, jacket = char:FindFirstChild("TopHat"), char:FindFirstChild("LayeredJacket")
+	assert(hat and jacket and jacket.Handle:FindFirstChildOfClass("WrapLayer"), "accessories not restored (" .. why .. ")")
+	assert(hat.Handle.AccessoryWeld.Part1 == char.Head, "hat weld lost (" .. why .. ")")
+	assert(char.Head.Color == look.head and char.UpperTorso.Color == look.torso and char.LeftUpperArm.Color == look.arm, "body colours not restored (" .. why .. ")")
+	assert(char.LeftUpperArm.TextureID == "rbxassetid://333", "skin texture not restored (" .. why .. ")")
+	assert(char.Head.face.Transparency == 0, "face not restored (" .. why .. ")")
+	assert(char.UpperTorso.AvatarTrail.Enabled == true, "trail not re-enabled (" .. why .. ")")
+	assert(not char:FindFirstChild(ShroudL.ModelName) and not ShroudService.isOn(char), "cloak left on (" .. why .. ")")
+end
+step("v1.4.1 night shroud + Dawn Scatter: dressed human Phantom == bot Phantom at night, restored inside the blackout, night respawn re-shrouds, match end restores", function()
+	run(400, function()
+		return phase() == "Lobby"
+	end)
+	MatchService.setDurations({ lobby = 0.5, day = 3, night = 30, results = 1 })
+	MatchService.state().lastPhantoms = {}
+	local look = dressAvatar(human.Character)
+	assert(run(1.5, function()
+		return phase() == "Day"
+	end), "no day")
+	BotService.setPaused(true)
+	local me = Participants.ofPlayer(human)
+	me.role = "Phantom" -- the human joins the bot Phantom: two Phantoms, one human, one bot
+	me.immuneUntil = math.huge
+	local botPh
+	for _, q in Participants.phantoms() do
+		if q.isBot then
+			botPh = q
+		end
+	end
+	if not botPh then -- the dice made the human the Phantom: give it a bot partner
+		for _, q in Participants.all() do
+			if q.isBot then
+				q.role = "Phantom"
+				botPh = q
+				break
+			end
+		end
+	end
+	assert(botPh and #Participants.phantoms() == 2, "need a human + a bot Phantom")
+	assertDressed(me.model, look, "day 1")
+	assert(run(5, function()
+		return phase() == "Night"
+	end), "no night")
+	assertShrouded(me.model, "human Phantom")
+	assertShrouded(botPh.model, "bot Phantom")
+	assert(cloakSignature(me.model) == cloakSignature(botPh.model), "human and bot shrouds differ:\n" .. cloakSignature(me.model) .. "\n" .. cloakSignature(botPh.model))
+	assert(me.model.HumanoidRootPart.Size == Vector3.new(2, 2, 1), "hitbox changed")
+	assert(me.model:FindFirstChild("PhantomMask") and me.model.Head.face.Transparency == 1, "mask / face")
+	-- shroud is idempotent: a second apply changes nothing and keeps the originals
+	local before = #me.model[ShroudL.ModelName]:GetChildren()
+	ShroudService.apply(me.model)
+	assert(#me.model[ShroudL.ModelName]:GetChildren() == before, "second apply duplicated the cloak")
+	-- night respawn: the new character (own avatar again) is shrouded at once, old stash dropped
+	local char = makeCharacter("Tester")
+	local look2 = dressAvatar(char)
+	local old = human.Character
+	human.Character = char
+	old:Destroy()
+	fakeSignal(human, "CharacterAdded"):Fire(char)
+	taskLib.wait(0.05)
+	assert(me.model == char, "respawn not picked up")
+	assertShrouded(char, "respawned human Phantom")
+	assert(ShroudService.count() == 2, "stash count after respawn " .. ShroudService.count())
+	-- dawn: the shroud comes off only inside the clock-strike blackout, everyone scattered
+	GridService.state().reboot = 99.99
+	MatchService.step(0.1)
+	assert(phase() == "Dawn", "expected Dawn")
+	assertShrouded(char, "human Phantom during the dawn interlude")
+	local offAt
+	assert(run(Match.DawnSeconds + 1, function()
+		if offAt == nil and not ShroudService.isOn(char) then
+			offAt = Clock.now()
+			local ss = MatchService._scatterState()
+			assert(ss.struck and ScatterL.alpha(offAt - ss.strikeAt) >= 1, "shroud off outside the blackout")
+		end
+		return phase() == "Day"
+	end), "no day 2")
+	assertDressed(char, look2, "dawn")
+	assert(botPh.model.Head.Color ~= roblox.Color3.fromRGB(24, 20, 30), "bot body colour not restored")
+	assert(ShroudService.count() == 0, "stash left after dawn")
+	-- night 2, then the match ends with the shroud on -> everything restored
+	assert(run(6, function()
+		return phase() == "Night"
+	end), "no night 2")
+	assertShrouded(char, "human Phantom night 2")
+	-- every Phantom leaves -> Guests win, match over (endRound) while the shroud is on
+	Participants.remove(botPh)
+	Participants.remove(me)
+	assert(run(1, function()
+		return phase() == "Results"
+	end), "match did not end")
+	assert(phase() == "Results" or phase() == "Lobby", "match did not end: " .. tostring(phase()))
+	assertDressed(char, look2, "match end")
+	assert(ShroudService.count() == 0, "stash left after match end")
+	BotService.setPaused(false)
+	assert(run(5, function()
+		return phase() == "Lobby"
+	end), "no lobby")
+	assertDressed(char, look2, "lobby")
+end)
+
 -- Bot-only 3-night matches at the real timings (speed-true walking, routes through doors,
 -- stairs and the lift; no wall collision). BAL_ROUNDS=n runs a longer balance sim.
 local BAL_ROUNDS = tonumber(process.env.BAL_ROUNDS or "") or 6
@@ -1556,6 +1813,16 @@ step(string.format("bot-only 3-night matches (no humans), %d matches, all floors
 	local hi = table.find(fakePlayers, human)
 	if hi then
 		table.remove(fakePlayers, hi)
+	end
+	if process.env.SCATTER_LEVELS then -- balance experiments: which floors the scatter may use
+		local lv = {}
+		for n in string.gmatch(process.env.SCATTER_LEVELS, "-?%d+") do
+			table.insert(lv, tonumber(n))
+		end
+		MatchService.setScatterLevels(lv)
+	end
+	if process.env.SCATTER == "0" then -- balance comparison without the v1.4.1 Dawn Scatter
+		MatchService.setScatterEnabled(false)
 	end
 	local results = {}
 	ExposeService.onExposed(function(t, isPhantom)
@@ -1710,6 +1977,22 @@ step("client HUD builds and lays out on 780x360, 891x411, 2340x1080, 1024x768, d
 		end
 	end
 	Hud.applyLayout(1024, 768, true)
+end)
+
+step("v1.4.1 Dawn Scatter client blackout: full-screen black over the HUD (inset ignored), fades in/holds/out over ~2 s, no input needed", function()
+	local Blackout = clientRequire("Blackout")
+	local pg = Instance.new("PlayerGui")
+	Blackout.build(pg)
+	local g = pg:FindFirstChild("CM_Blackout")
+	assert(g and g.IgnoreGuiInset == true and g.DisplayOrder > 0 and g.Enabled == false, "blackout gui")
+	local f = g:FindFirstChild("Black")
+	assert(f.Size == roblox.UDim2.fromScale(1, 1) and f.Active == false and not f:FindFirstChildWhichIsA("GuiButton", true), "blackout frame must cover the screen and take no input")
+	Blackout.play({ total = 2, fadeIn = 0.45, fadeOut = 0.45 }, 100)
+	assert(g.Enabled and Blackout.active(), "not playing")
+	assert(Blackout.step(100.2) > 0.3 and f.BackgroundTransparency < 0.7, "not fading in")
+	assert(Blackout.step(100.8) == 1 and f.BackgroundTransparency == 0, "not black at the swap")
+	assert(Blackout.step(101.8) < 1, "not fading out")
+	assert(Blackout.step(102.1) == 0 and not Blackout.active() and g.Enabled == false, "did not finish")
 end)
 
 step("client HUD states: lobby menu, guest day/night (hotbar, gadget), floor badge, phantom, wisp, finale meter, results", function()

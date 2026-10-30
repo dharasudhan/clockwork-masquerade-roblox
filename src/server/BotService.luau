@@ -207,6 +207,20 @@ local function stop(b)
 	end
 end
 
+-- v1.4.1 Dawn Scatter moved this bot: drop the old route and re-plan from the new room
+function BotService.relocated(b)
+	b.path = {}
+	b.goal = nil
+	b.progressAt = Clock.now()
+	b.lastDist = math.huge
+	b.tickAt = 0
+	local h = Participants.humanoid(b)
+	local pos = Participants.pos(b)
+	if h and pos then
+		h:MoveTo(pos)
+	end
+end
+
 local function note(b, pos: Vector3)
 	local lvl = ManorLayout.levelAt(Manor, pos.Y)
 	b.levels = b.levels or {}

@@ -1,3 +1,105 @@
+# Clockwork Masquerade — v1.4.1 night shroud + Dawn Scatter (Oct 30, 2026)
+
+Approved by Murali on Oct 30. Both changes close the last two ways to identify a Phantom by
+something other than its behaviour: its own avatar outfit at night, and where it was last seen
+when the night ended.
+
+## Night shroud (new: `Logic/Shroud`, `server/ShroudService`)
+
+- At nightfall every Phantom (human AND bot) loses everything that identifies the avatar and
+  wears one uniform steampunk cloak instead. By day nothing changes: a Phantom looks like any guest.
+- **Hidden / stashed**: Shirt, Pants, ShirtGraphic, every Accessory (hats, hair, faces, layered
+  clothing / WrapLayer), BodyColors, R6 CharacterMesh, SurfaceAppearance skins, the face decal
+  (and any decal on a body part), avatar trails/sparkles, the bot fallback top hat. Body parts are
+  recoloured to the shroud colour and MeshPart skin textures cleared. The lantern lamp shows the
+  default brass instead of the owner's lantern skin. (Name tag + ribbon were already hidden in v1.4.)
+- **Uniform cloak** (15 primitives, no assets, welded to the body): ball hood that covers the
+  face + swept peak, mantle, long skirt to just above the floor, six tattered hem strips, two
+  sleeves, a brass gear clasp and two glowing amber clockwork eyes (one PointLight) in front of
+  the existing neon Phantom mask. Names, colours, materials and part count never depend on the
+  avatar; only the fit scales with the rig (R15, R6, rthro).
+- **Reversible**: identifying instances are re-parented to a server-only stash folder
+  (`ServerStorage.CM_ShroudStash/<id>`) and every changed property is written to an undo
+  ledger; undo replays it backwards. Restored at dawn (inside the blackout, below), at match end
+  (`endRound` → `ShroudService.clearAll`, and again in cleanup) and dropped with the old character
+  on a respawn; a respawn during the night re-shrouds the new character (`ChaseService.reapply`,
+  now called after the lantern is rigged). Applying twice never records the shroud as the
+  "original".
+- Why not `GetAppliedDescription` / `ApplyDescription`: it yields, loads assets over the network
+  and can fail, it does not cover our own cosmetic parts, and it can't run in the headless smoke.
+  Real-engine finding: an accessory loses its `AccessoryRigidConstraint` when it leaves the
+  character, so the restore re-adds accessories through `Humanoid:AddAccessory`.
+- Safe by construction: cloak parts are unanchored, massless, CanCollide/CanQuery/CanTouch off,
+  so hitboxes (root distance), raycasts, the lantern, held items and the Phase Glide / Shockwave
+  Dash VFX (in `workspace.Effects`) are untouched; they live inside the character model, so they
+  stream with it under StreamingEnabled.
+
+## Dawn Scatter (new: `Logic/Scatter`, `client/Blackout`; `MatchService` Dawn phase)
+
+- Two seconds before each dawn interlude ends, the clock strikes: the server sends
+  `Notify{kind="blackout"}` + the `ClockStrike` chime (re-used verified Gong 1846269128), every
+  client fades to black (0.45 s), holds, and fades back in (0.45 s) as the Day begins. Pure GUI,
+  no input: phone, keyboard and gamepad behave the same.
+- At 0.8 s — inside the fully-black window on every client, latency shifts the fade and the
+  teleport equally — the server takes the shroud off / puts disguises back / wakes Wisps
+  (`ChaseService.dawn`) and moves EVERY participant (guests, Phantoms, bots) to a random safe
+  spot in a different room. Landing spots are chosen at the strike and pre-streamed with
+  `Player:RequestStreamAroundAsync` (StreamingEnabled + PauseOutsideLoadedArea).
+- Spot rules: real rooms only (no stairwells, lift cars, balconies, or corridors/landings under
+  14 studs), spots inset ≥ 25% from the walls (doorways sit in walls), ≥ 5 studs from chests,
+  breaker stand points, keys, projector, and ≥ 6 from the exit console; one person per room while
+  rooms last, never the room they stood in, floors interleaved, deterministic per seed. A
+  real-engine boot check raycasts a floor under all spots and finds nothing solid where a
+  character lands.
+- **Balance call (Hark)**: the scatter uses B1, Ground, 1st and 2nd floor but **not the Tower**.
+  With the Tower in, 30-match bot sims gave guests 20–30% match wins (a guest stranded in the
+  dead-end Tower before the finale); without it 43% (scatter off: 43%).
+- Bots drop their route after the move and re-plan from the new room (`BotService.relocated`).
+- New workspace attributes: `CM_BlackoutAt`, `CM_BlackoutUntil`, `CM_ScatterAt`, `CM_ScatterMoved`.
+
+## Tests
+
+- `tests/specs/Shroud.spec.luau` (14): classification, undo ledger (exact restore, idempotent
+  apply, newest-first undo), uniform look across R15/R6/rthro, part budget, skirt/hood/eye fit.
+- `tests/specs/Scatter.spec.luau`: candidate rules, spots in-room / clear of props / resolving
+  to that room, B1–2F only, one per room + never the previous room (40 seeds), floor spread,
+  deterministic per seed, order-independent, more people than rooms, blackout timing.
+- Engine smoke: every Phantom (bots too) shrouded each night; at dawn the shroud stays on until
+  the strike and comes off only while the screen is fully black; blackout notify + chime +
+  stream request sent; everyone lands in a new, distinct room; a dressed human Phantom (shirt,
+  pants, t-shirt, hat, layered jacket, body colours, face, skin texture, trail) and a bot Phantom
+  wear identical cloaks, a night respawn re-shrouds, dawn / match end / lobby restore everything
+  exactly; client blackout GUI fade. (De-flake: the staged-night step clears a Phantom stun that
+  bot Expose votes can cause in the staged day.)
+- Cloud: `boot_check` probes R15 + R6 HumanoidDescription rigs (on/off, accessory re-attach) and
+  all scatter spots in the real map; `bots_check` asserts the real-rig night shroud and the dawn
+  scatter (everyone moved, distinct rooms, shroud gone).
+- Test hooks: `MatchService.setScatterEnabled`, `MatchService.setScatterLevels`; smoke env
+  `SCATTER=0`, `SCATTER_LEVELS="-1,0,1,2"` for balance experiments.
+
+## Results (Oct 30 2026)
+
+- Local `./scripts/test.sh`: syntax 109 files, **118/118 specs**, place verify 56/56, engine smoke 0 failures.
+- Bot balance, 30 bot-only matches each, final config: **33%** (10/30) and **47%** (14/30) guest wins
+  (an earlier identical-logic run: 43%); pooled **37/90 = 41%**, inside the 40–50% target.
+  Scatter-off control: 43%. Bot-sim noise is about ±9 points per 30-match run.
+- Cloud (universe 10773325724 / place 80777289760756 only): 119/119 specs, boot OK (v1.4.1, shroud
+  R15+R6 on/off, 156 scatter spots safe), real-engine bot match OK (shroud 15 parts, scatter 6 moved
+  into 6 rooms), audio 26/26.
+- **Published privately as place version 20** (label v1.4.1); universe read back **PRIVATE**.
+- Mock-up: `../shots/v1.4.1/phantom-shroud-day-vs-night.png` (geometry render from `Logic/Shroud.layout`,
+  not an in-engine capture).
+
+## Open points / risks
+
+- Body size still differs between avatars (rthro vs classic): the cloak hides outfit and colours
+  but not height; forcing scale would change hitboxes, so it was left alone.
+- Emote props and a player's own emotes are untouched (voluntary signals).
+- Real-device check still needed: the blackout fade on a phone and a console, and the hood/eyes on
+  rthro and dynamic-head avatars.
+- Night-3 position tells are gone, but a player who watched someone enter a room by day can still
+  reason about routes - that is intended deduction.
+
 # Clockwork Masquerade — v1.4 session intro (Oct 30, 2026)
 
 ## Every-session story intro

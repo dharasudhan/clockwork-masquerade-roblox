@@ -91,3 +91,20 @@ integrating them we compared approaches in:
 - **oh-ashen-one/roblox-infected** (MIT) — Rojo/Lune round game with pure, unit-tested quest and season-pass cores on
   ProfileStore; confirmed the "pure logic + Lune specs + per-season save slot" structure.
 Nothing from either repository is included.
+
+## v1.4.1 night shroud + Dawn Scatter (Oct 30 2026) — ideas compared, no code copied
+
+`Logic/Shroud`, `server/ShroudService`, `Logic/Scatter` and `client/Blackout` were written for this repo. Researched first:
+- **Quenty/NevermoreEngine `HumanoidDescriptionUtils`** (MIT, maintained) —
+  https://github.com/Quenty/NevermoreEngine/blob/main/src/humanoiddescriptionutils/src/Shared/HumanoidDescriptionUtils.lua —
+  wraps `Humanoid:ApplyDescriptionAsync` in a Promise/pcall because it yields, loads assets and can fail. That is why
+  the shroud does NOT round-trip through `GetAppliedDescription`/`ApplyDescription`: it uses a synchronous, reversible
+  stash (identifying instances re-parented to a server-only folder, changed properties recorded in an undo ledger).
+- **Roblox creator-docs, "Character appearance"** (CC-BY-4.0 docs) —
+  https://github.com/Roblox/creator-docs/blob/main/content/en-us/characters/appearance.md — what makes up an avatar's
+  look (accessories incl. layered clothing, classic clothing, body colours, body parts) → the stash classification.
+- Community morph scripts (e.g. DevForum "MorphModule", gists that strip Shirt/Pants/Accessory children) — the common
+  "remove clothing + accessories, add morph parts" pattern; most have no license, so ideas only.
+Engine fact found in a real-server probe (Oct 30 2026): an accessory loses its `AccessoryRigidConstraint` when it leaves
+the character, so the restore re-adds accessories through `Humanoid:AddAccessory`.
+Audio: the clock-strike chime re-uses the verified Gong 1846269128. No new assets, nothing bought.

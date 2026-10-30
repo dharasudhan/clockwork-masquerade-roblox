@@ -5,6 +5,8 @@
 -- v1.2 (engagement pass): Rising Storm Phantom speed bonus (CM_EscSpeed), Last Stand survivor
 -- speed (Logic/Escalation), manor-event speed (CM_EventSpeed), and "grazed" near-miss feedback
 -- when a swipe just misses a guest.
+-- v1.4 (deduction fix): a transformed Phantom's nametag is HIDDEN - a name over the monster
+-- named its account and made the next Expose vote trivial. Guests keep their names by day.
 local PhysicsService = game:GetService("PhysicsService")
 local Shared = game:GetService("ReplicatedStorage"):WaitForChild("Shared")
 local Gadgets = require(Shared.Config.Gadgets)
@@ -97,6 +99,25 @@ function ChaseService.prepare(p)
 	end
 end
 
+-- v1.4: show/hide a participant's in-world name. The night Phantom is anonymous (hide);
+-- everyone else keeps their name - daytime accusations need referable identity. Covers both
+-- nametag flavours: the Humanoid default tag (DisplayDistanceType) and the bot NameTag gui.
+local function setNameShown(p, shown: boolean)
+	local m = p.model
+	if not m then
+		return
+	end
+	local h = m:FindFirstChildOfClass("Humanoid")
+	if h then
+		h.DisplayDistanceType = if shown then Enum.HumanoidDisplayDistanceType.Viewer else Enum.HumanoidDisplayDistanceType.None
+	end
+	local head = m:FindFirstChild("Head")
+	local tag = head and (head:FindFirstChild("NameTag") :: BillboardGui?)
+	if tag then
+		tag.Enabled = shown
+	end
+end
+
 -- ---- Phantom transform ------------------------------------------------------------------
 local function maskOn(p)
 	local m = p.model
@@ -146,6 +167,7 @@ function ChaseService.nightFalls()
 		p.transformUntil = now + P.transformSeconds
 		Participants.set(p, "Transforming", true)
 		maskOn(p)
+		setNameShown(p, false) -- v1.4: the monster is anonymous
 		p.lastTag = nil
 		Participants.set(p, "TagReadyAt", now + P.transformSeconds)
 	end
@@ -482,7 +504,7 @@ function ChaseService.step(dt: number)
 				end
 				Participants.set(p, "Revealed", revealed)
 				local beams = LanternService.beamsOn(p.id)
-				local recoil = if p.lastTag and now - p.lastTag < P.recoilSeconds then P.recoilFactor else 1
+				local recoil = if p.lastTag and now - p.lastTag < P.recoilSeconds else P.recoilFactor
 				local held = now < (p.frozenUntil or 0) or now < (p.stunUntil or 0)
 				local mul = if hooks.phantomSpeed then hooks.phantomSpeed() else 1
 				setSpeed(p, if p.transformed and not held then (P.nightSpeed + escSpeed) * mul * Lantern.speedFactor(beams, Gadgets.Lantern) * recoil else 0)
@@ -511,8 +533,8 @@ function ChaseService.step(dt: number)
 						p.slickUntil = now + W.slickSlowSeconds
 					end
 				end
-				slowed = now < (p.slickUntil or 0)
 			end
+			slowed = now < (p.slickUntil or 0)
 			Participants.set(p, "Slowed", slowed)
 			local boost = if now < (p.boostUntil or 0) then Items.Boots.factor else 1
 			local shaken = if now < (p.shakenUntil or 0) then Match.Expose.shakenFactor else 1
@@ -608,6 +630,7 @@ function ChaseService.dawn()
 					end
 				end
 			end
+			setNameShown(p, true) -- v1.4: disguise back on, name back on
 			setState(p, "Guest") -- looks like a guest again by day
 			p.state = "Guest"
 			Participants.set(p, "PState", "Guest")
@@ -635,6 +658,7 @@ end
 -- A respawned character (fell, reset) gets its round look back.
 function ChaseService.reapply(p)
 	ChaseService.prepare(p)
+	setNameShown(p, not (p.role == "Phantom" and p.state == "Phantom")) -- v1.4
 	if p.state == "Wisp" or p.state == "Bubble" then
 		becomeWisp(p)
 	elseif p.role == "Phantom" and p.state == "Phantom" then
@@ -660,6 +684,7 @@ function ChaseService.reset()
 			p.bubblePart:Destroy()
 			p.bubblePart = nil
 		end
+		setNameShown(p, true) -- v1.4: never leave a hidden name behind after a match
 	end
 	LightingService.stopFlicker()
 end
